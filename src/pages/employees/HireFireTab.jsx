@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
+import PersonAutocomplete from '../../components/PersonAutocomplete';
 
 export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
     const [selectedPerson, setSelectedPerson] = useState(null);
@@ -31,6 +32,17 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
     // Удаление
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Повторный приём
+    const [isRehiring, setIsRehiring] = useState(false);
+    const [rehirePosition, setRehirePosition] = useState('');
+    const [rehireStartDate, setRehireStartDate] = useState(new Date().toISOString().slice(0, 10));
+    const [rehireBatchId, setRehireBatchId] = useState('');
+
+    // Объединение дублей физлиц
+    const [isMerging, setIsMerging] = useState(false);
+    const [mergeSearchText, setMergeSearchText] = useState('');
+    const [mergeTarget, setMergeTarget] = useState(null);
 
     const filteredPersons = useMemo(() => {
         if (!persons) return [];
@@ -67,6 +79,8 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                 setEditSalaryTiers(tiers.map(t => ({ days: String(t.days || ''), rate: String(t.rate || '') })));
             }
             setIsEditing(true);
+            setIsRehiring(false);
+            setIsMerging(false);
         }
     };
 
@@ -126,20 +140,32 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
         setIsSaving(false);
     };
 
-    const handleRehireEmployee = async () => {
+    const handleStartRehire = () => {
+        setRehirePosition(recentEmployment?.position || '');
+        setRehireStartDate(new Date().toISOString().slice(0, 10));
+        setRehireBatchId('');
+        setIsRehiring(true);
+        setIsEditing(false);
+        setIsAddingPeriod(false);
+    };
+
+    const handleCancelRehire = () => setIsRehiring(false);
+
+    const handleConfirmRehire = async (e) => {
+        e.preventDefault();
         if (!selectedPerson) return;
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
-        
-        const today = new Date().toISOString().slice(0, 10);
+
         const { error } = await supabase
             .from('employees')
             .insert({
                 person_id: selectedPerson.id,
                 full_name: selectedPerson.full_name,
-                position: recentEmployment?.position || '',
-                start_date: today,
+                position: rehirePosition,
+                start_date: rehireStartDate,
                 end_date: null,
+                batch_id: rehireBatchId || null,
                 is_active: true,
                 user_id: user?.id,
                 rate: recentEmployment?.rate || 0,
@@ -147,11 +173,82 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
             });
 
         if (error) {
-            alert('Ошибка: ' + error.message);
+            if (error.code === '23505') {
+                alert('У этого физлица уже есть активный период работы.');
+            } else {
+                alert('Ошибка: ' + error.message);
+            }
         } else {
             await fetchPersons();
             setSelectedPerson(null);
+            setIsRehiring(false);
         }
+        setIsSaving(false);
+    };
+
+    const handleStartMerge = () => {
+        setMergeSearchText('');
+        setMergeTarget(null);
+        setIsMerging(true);
+        setIsEditing(false);
+        setIsAddingPeriod(false);
+        setIsRehiring(false);
+    };
+
+    const handleCancelMerge = () => {
+        setIsMerging(false);
+        setMergeTarget(null);
+        setMergeSearchText('');
+    };
+
+    const handleConfirmMerge = async () => {
+        if (!selectedPerson || !mergeTarget) return;
+        if (mergeTarget.id === selectedPerson.id) {
+            alert('Нельзя объединить физлицо само с собой.');
+            return;
+        }
+
+        const targetHasOpenPeriod = mergeTarget.employees?.some(e => e.is_active !== false && !e.end_date);
+        const selectedHasOpenPeriod = selectedPerson.employees?.some(e => e.is_active !== false && !e.end_date);
+        if (targetHasOpenPeriod && selectedHasOpenPeriod) {
+            alert('У обоих физлиц есть активный (неувольненный) период работы. Сначала уволить один из них, потом объединять.');
+            return;
+        }
+
+        const periodsCount = mergeTarget.employees?.length || 0;
+        if (!window.confirm(
+            `Объединить «${mergeTarget.full_name}» с «${selectedPerson.full_name}»?\n\n` +
+            `Вся история работы «${mergeTarget.full_name}» (${periodsCount} период(ов)) будет перенесена в карточку ` +
+            `«${selectedPerson.full_name}», а физлицо «${mergeTarget.full_name}» будет удалено безвозвратно.`
+        )) return;
+
+        setIsSaving(true);
+
+        const { error: reparentError } = await supabase
+            .from('employees')
+            .update({ person_id: selectedPerson.id, full_name: selectedPerson.full_name })
+            .eq('person_id', mergeTarget.id);
+
+        if (reparentError) {
+            if (reparentError.code === '23505') {
+                alert('Не удалось объединить: у обоих физлиц есть активный период работы. Сначала уволить один из них.');
+            } else {
+                alert('Ошибка при переносе карточек: ' + reparentError.message);
+            }
+            setIsSaving(false);
+            return;
+        }
+
+        const { error: deleteError } = await supabase.from('persons').delete().eq('id', mergeTarget.id);
+        if (deleteError) {
+            alert('Карточки перенесены, но не удалось удалить дубль физлица: ' + deleteError.message);
+        }
+
+        await fetchPersons();
+        setSelectedPerson(null);
+        setIsMerging(false);
+        setMergeTarget(null);
+        setMergeSearchText('');
         setIsSaving(false);
     };
 
@@ -182,6 +279,8 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
         setNewPeriodSalaryTiers(tiers);
         setIsAddingPeriod(true);
         setIsEditing(false);
+        setIsRehiring(false);
+        setIsMerging(false);
     };
 
     const handleCancelAddPeriod = () => {
@@ -210,7 +309,11 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
             });
 
             if (error) {
-                alert('Ошибка при добавлении периода: ' + error.message);
+                if (error.code === '23505') {
+                    alert('У этого физлица уже есть активный период работы. Сначала уволить его.');
+                } else {
+                    alert('Ошибка при добавлении периода: ' + error.message);
+                }
             } else {
                 await fetchPersons();
                 setSelectedPerson(null);
@@ -251,6 +354,9 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                         setSelectedPerson(person);
                                         setIsEditing(false);
                                         setShowDeleteConfirm(false);
+                                        setIsAddingPeriod(false);
+                                        setIsRehiring(false);
+                                        setIsMerging(false);
                                     }}
                                     className={`p-3 rounded-xl cursor-pointer transition-all border ${
                                         selectedPerson?.id === person.id
@@ -316,7 +422,7 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                 </button>
                                 {isEmployeeFired ? (
                                     <button
-                                        onClick={handleRehireEmployee}
+                                        onClick={handleStartRehire}
                                         disabled={isSaving}
                                         className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-medium transition-colors shadow-sm disabled:bg-gray-300"
                                     >
@@ -347,6 +453,12 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                 >
                                     ➕ Добавить период
                                 </button>
+                                <button
+                                    onClick={handleStartMerge}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-medium transition-colors shadow-sm"
+                                >
+                                    🔗 Объединить с другим физлицом
+                                </button>
                             </div>
                         </div>
 
@@ -359,6 +471,70 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                         <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 px-4 py-2 bg-gray-100 rounded-xl">Отмена</button>
                                         <button onClick={handleDeletePerson} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl">Удалить</button>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {isRehiring && (
+                            <form onSubmit={handleConfirmRehire} className="mb-6 pb-6 border-b bg-green-50 p-5 rounded-xl">
+                                <h3 className="font-bold mb-4 text-lg text-gray-800">🔄 Принять заново: {selectedPerson.full_name}</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="text-sm font-semibold">Должность</label>
+                                        <input type="text" value={rehirePosition} onChange={e => setRehirePosition(e.target.value)} className="w-full p-2.5 border rounded-xl mt-1" />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-semibold">Дата начала работы</label>
+                                        <input type="date" value={rehireStartDate} onChange={e => setRehireStartDate(e.target.value)} required className="w-full p-2.5 border rounded-xl mt-1" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="text-sm font-semibold text-indigo-700">Партия / цех</label>
+                                        <select value={rehireBatchId} onChange={e => setRehireBatchId(e.target.value)} className="w-full p-2.5 border-2 border-indigo-200 rounded-xl mt-1">
+                                            <option value="">— Без партии —</option>
+                                            {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-400 mb-4">Ставка и ступени оплаты подтянутся из последнего периода работы автоматически.</p>
+                                <div className="flex gap-3">
+                                    <button type="submit" disabled={isSaving} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300">
+                                        {isSaving ? 'Сохранение...' : 'Принять на работу'}
+                                    </button>
+                                    <button type="button" onClick={handleCancelRehire} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
+                                </div>
+                            </form>
+                        )}
+
+                        {isMerging && (
+                            <div className="mb-6 pb-6 border-b bg-purple-50 p-5 rounded-xl">
+                                <h3 className="font-bold mb-2 text-lg text-gray-800">🔗 Объединить «{selectedPerson.full_name}» с дублем</h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Найдите физлицо, которое на самом деле является тем же человеком. Вся его история работы
+                                    переедет в текущую карточку «{selectedPerson.full_name}», а дубль будет удалён.
+                                </p>
+                                <PersonAutocomplete
+                                    persons={persons}
+                                    value={mergeSearchText}
+                                    onChange={(text) => { setMergeSearchText(text); setMergeTarget(null); }}
+                                    onSelectExisting={(p) => { setMergeTarget(p); setMergeSearchText(p.full_name); }}
+                                    excludeId={selectedPerson.id}
+                                    placeholder="Введите ФИО дубля..."
+                                />
+                                {mergeTarget && (
+                                    <p className="text-xs text-purple-700 mt-2">
+                                        ✓ Выбран дубль: «{mergeTarget.full_name}» ({mergeTarget.employees?.length || 0} период(ов) работы будет перенесено)
+                                    </p>
+                                )}
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirmMerge}
+                                        disabled={!mergeTarget || isSaving}
+                                        className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300"
+                                    >
+                                        {isSaving ? 'Объединение...' : 'Объединить'}
+                                    </button>
+                                    <button type="button" onClick={handleCancelMerge} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
                                 </div>
                             </div>
                         )}

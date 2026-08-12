@@ -2,41 +2,78 @@
 
 import { useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import PersonAutocomplete from '../../components/PersonAutocomplete';
 
 export default function CreateEmployeeTab({ activeBatches, fetchPersons, persons }) {
-    const [newName, setNewName] = useState('');
+    const [nameInput, setNameInput] = useState('');
+    const [personChoice, setPersonChoice] = useState(null); // { mode: 'existing', person } | { mode: 'new', name }
     const [newPosition, setNewPosition] = useState('');
     const [newStartDate, setNewStartDate] = useState(new Date().toISOString().slice(0, 10));
     const [newBatchId, setNewBatchId] = useState(''); // optional
     const [isAdding, setIsAdding] = useState(false);
     const [success, setSuccess] = useState(false);
 
+    const handleNameInputChange = (text) => {
+        setNameInput(text);
+        setPersonChoice(null); // любое ручное изменение текста сбрасывает предыдущий выбор
+    };
+
+    const handleSelectExisting = (person) => {
+        setNameInput(person.full_name);
+        setPersonChoice({ mode: 'existing', person });
+    };
+
+    const handleCreateNew = (name) => {
+        setPersonChoice({ mode: 'new', name });
+    };
+
     const handleAddEmployee = async (e) => {
         e.preventDefault();
+        if (!personChoice) {
+            alert('Выберите физлицо из списка или нажмите «Создать новое физлицо «...»» под полем ФИО.');
+            return;
+        }
         setIsAdding(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            
-            let personId = null;
-            const existingPerson = persons?.find(p => p.full_name.trim().toLowerCase() === newName.trim().toLowerCase());
-            
-            if (existingPerson) {
-                personId = existingPerson.id;
+
+            let personId;
+            let fullName;
+
+            if (personChoice.mode === 'existing') {
+                personId = personChoice.person.id;
+                fullName = personChoice.person.full_name;
+
+                // Предварительная проверка ради понятной ошибки — окончательная защита
+                // от гонки на уровне БД (уникальный индекс employees_one_active_period_per_person)
+                const { data: openPeriods, error: checkError } = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('person_id', personId)
+                    .eq('is_active', true)
+                    .is('end_date', null);
+                if (checkError) throw checkError;
+                if (openPeriods && openPeriods.length > 0) {
+                    alert('У этого физлица уже есть активный период работы. Сначала уволить его в разделе «Принятие и увольнение».');
+                    setIsAdding(false);
+                    return;
+                }
             } else {
+                fullName = personChoice.name;
                 const { data: newPersonData, error: personError } = await supabase.from('persons').insert([
-                    { 
-                        full_name: newName.trim(),
-                        user_id: user.id 
+                    {
+                        full_name: fullName,
+                        user_id: user.id
                     }
                 ]).select().single();
-                
+
                 if (personError) throw personError;
                 personId = newPersonData.id;
             }
 
             const { error: employeeError } = await supabase.from('employees').insert([
                 {
-                    full_name: newName.trim(),
+                    full_name: fullName,
                     person_id: personId,
                     position: newPosition,
                     start_date: newStartDate,
@@ -45,10 +82,16 @@ export default function CreateEmployeeTab({ activeBatches, fetchPersons, persons
                     user_id: user.id,
                 },
             ]);
-            
-            if (employeeError) throw employeeError;
 
-            setNewName('');
+            if (employeeError) {
+                if (employeeError.code === '23505') {
+                    throw new Error('У этого физлица уже есть активный период работы. Сначала уволить его в разделе «Принятие и увольнение».');
+                }
+                throw employeeError;
+            }
+
+            setNameInput('');
+            setPersonChoice(null);
             setNewPosition('');
             setNewStartDate(new Date().toISOString().slice(0, 10));
             setNewBatchId('');
@@ -86,14 +129,23 @@ export default function CreateEmployeeTab({ activeBatches, fetchPersons, persons
                 <form onSubmit={handleAddEmployee} className="space-y-5">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">ФИО</label>
-                        <input
-                            type="text"
-                            value={newName}
-                            onChange={e => setNewName(e.target.value)}
-                            required
-                            placeholder="Введите полное имя"
-                            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                        <PersonAutocomplete
+                            persons={persons || []}
+                            value={nameInput}
+                            onChange={handleNameInputChange}
+                            onSelectExisting={handleSelectExisting}
+                            onCreateNew={handleCreateNew}
+                            placeholder="Начните вводить имя..."
                         />
+                        {personChoice?.mode === 'existing' && (
+                            <p className="text-xs text-indigo-600 mt-1.5">✓ Выбрано существующее физлицо — будет добавлен новый период работы</p>
+                        )}
+                        {personChoice?.mode === 'new' && (
+                            <p className="text-xs text-emerald-600 mt-1.5">✓ Будет создано новое физлицо «{personChoice.name}»</p>
+                        )}
+                        {!personChoice && nameInput.trim() && (
+                            <p className="text-xs text-gray-400 mt-1.5">Выберите физлицо из списка ниже или создайте новое</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">Должность</label>

@@ -161,17 +161,19 @@ const { error: employeesError } = await supabase
         is_active: false,
         end_date: today  // <-- дата увольнения
     })
-    .eq('batch_id', batchId);
+    .eq('batch_id', batchId)
+    .eq('is_active', true); // не трогаем уже закрытые ранее карточки этой же партии
 
             if (employeesError) {
                 console.error('Ошибка при обновлении сотрудников:', employeesError);
                 alert('Партия архивирована, но не удалось обновить статус сотрудников: ' + employeesError.message);
             } else {
-                // Считаем сколько сотрудников уволили для информации
+                // Считаем сколько сотрудников уволили в рамках этой архивации
                 const { count } = await supabase
                     .from('employees')
                     .select('id', { count: 'exact', head: true })
-                    .eq('batch_id', batchId);
+                    .eq('batch_id', batchId)
+                    .eq('end_date', today);
 
                 if (count > 0) {
                     alert(`✅ Партия завершена. Уволено сотрудников: ${count}.\nВыплаты по ним переведены в архив автоматически.`);
