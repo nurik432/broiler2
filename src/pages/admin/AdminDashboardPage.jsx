@@ -1,14 +1,36 @@
 // src/pages/admin/AdminDashboardPage.jsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
+import TrendChart from '../../components/admin/TrendChart';
 
 const numberFmt = (n) => Number(n || 0).toLocaleString('ru-RU');
+const shortDateFmt = (v) => (v ? new Date(v).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '');
+
+const COLUMNS = [
+  { key: 'email', label: 'Клиент', align: 'left' },
+  { key: 'workshops_count', label: 'Цехов', align: 'center' },
+  { key: 'active_batches', label: 'Активных партий', align: 'center' },
+  { key: 'current_flock', label: 'Поголовье сейчас', align: 'center' },
+  { key: 'mortality_total', label: 'Падёж всего', align: 'center' },
+  { key: 'expenses_total', label: 'Расходы', align: 'right' },
+  { key: 'sales_total', label: 'Продажи', align: 'right' },
+  { key: 'last_sign_in_at', label: 'Последний вход', align: 'left' },
+];
 
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [platformTrend, setPlatformTrend] = useState([]);
+  const [trendError, setTrendError] = useState(null);
+
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('email');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     load();
@@ -17,10 +39,41 @@ export default function AdminDashboardPage() {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase.rpc('admin_client_summary');
-    if (error) setError(error.message);
-    setClients(data || []);
+    const [summaryRes, trendRes] = await Promise.all([
+      supabase.rpc('admin_client_summary'),
+      supabase.rpc('admin_platform_trend'),
+    ]);
+    if (summaryRes.error) setError(summaryRes.error.message);
+    setClients(summaryRes.data || []);
+    if (trendRes.error) setTrendError(trendRes.error.message);
+    else setPlatformTrend(trendRes.data || []);
     setLoading(false);
+  }
+
+  const filteredSorted = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = q ? clients.filter((c) => c.email?.toLowerCase().includes(q)) : clients;
+    list = [...list].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      let cmp;
+      if (typeof av === 'string' || typeof bv === 'string') {
+        cmp = String(av || '').localeCompare(String(bv || ''));
+      } else {
+        cmp = Number(av || 0) - Number(bv || 0);
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [clients, search, sortKey, sortDir]);
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Загрузка...</div>;
@@ -33,6 +86,10 @@ export default function AdminDashboardPage() {
     expenses: acc.expenses + Number(c.expenses_total),
     sales: acc.sales + Number(c.sales_total),
   }), { workshops: 0, activeBatches: 0, flock: 0, expenses: 0, sales: 0 });
+
+  const mortalitySeries = [{ key: 'mortality', label: 'Падёж (голов)', color: '#dc3545' }];
+  const expensesSeries = [{ key: 'expenses', label: 'Расходы', color: '#dc3545' }];
+  const salesSeries = [{ key: 'sales', label: 'Продажи', color: '#007bff' }];
 
   return (
     <div>
@@ -59,22 +116,73 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      {/* --- Платформенный тренд (по неделям, все клиенты) --- */}
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #dee2e6', padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 'bold', color: '#1f2937', margin: '0 0 4px' }}>📈 Динамика по платформе (по неделям)</h3>
+        {trendError ? (
+          <p style={{ color: '#dc3545', fontSize: 13 }}>Ошибка загрузки тренда: {trendError}</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginTop: 14 }}>
+            <div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Падёж, голов/неделя</div>
+              <TrendChart data={platformTrend} xKey="week_start" series={mortalitySeries} formatX={shortDateFmt} height={130} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Расходы/неделя</div>
+              <TrendChart data={platformTrend} xKey="week_start" series={expensesSeries} formatX={shortDateFmt} height={130} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Продажи/неделя</div>
+              <TrendChart data={platformTrend} xKey="week_start" series={salesSeries} formatX={shortDateFmt} height={130} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+        <input
+          type="text"
+          placeholder="Поиск по email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid #dee2e6', borderRadius: 6, fontSize: 14, minWidth: 240 }}
+        />
+        {search && (
+          <span style={{ fontSize: 13, color: '#888' }}>Найдено: {filteredSorted.length}</span>
+        )}
+      </div>
+
       <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #dee2e6', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#f8f9fa' }}>
-                {['Клиент', 'Цехов', 'Активных партий', 'Поголовье сейчас', 'Падёж всего', 'Расходы', 'Продажи', 'Последний вход'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', borderBottom: '2px solid #dee2e6', textAlign: 'left', fontWeight: 'bold' }}>{h}</th>
+                {COLUMNS.map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    style={{ padding: '10px 12px', borderBottom: '2px solid #dee2e6', textAlign: col.align, fontWeight: 'bold', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    title="Сортировать"
+                  >
+                    {col.label}{sortKey === col.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {clients.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: '#999' }}>Клиентов пока нет</td></tr>
-              ) : clients.map(c => (
-                <tr key={c.client_user_id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 'bold' }}>{c.email}</td>
+              {filteredSorted.length === 0 ? (
+                <tr><td colSpan={COLUMNS.length} style={{ padding: 20, textAlign: 'center', color: '#999' }}>
+                  {search ? 'Ничего не найдено' : 'Клиентов пока нет'}
+                </td></tr>
+              ) : filteredSorted.map(c => (
+                <tr
+                  key={c.client_user_id}
+                  onClick={() => navigate(`/client/${c.client_user_id}`)}
+                  style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f8f9fa'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <td style={{ padding: '10px 12px', fontWeight: 'bold', color: '#4f46e5' }}>{c.email}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>{c.workshops_count}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>{c.active_batches}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>{numberFmt(c.current_flock)}</td>
