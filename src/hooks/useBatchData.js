@@ -103,10 +103,12 @@ export function useWorkshops() {
   }
 
   async function createWorkshop({ name, capacity, description }) {
+    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from('workshops').insert([{
       name,
       capacity: capacity ? Number(capacity) : null,
       description: description || null,
+      user_id: user.id,
     }]);
     if (!error) await load();
     return { error };

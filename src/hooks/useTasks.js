@@ -30,7 +30,8 @@ export function useTasks(filters = {}) {
   }
 
   async function createTask(taskData) {
-    const { error } = await supabase.from('tasks').insert(taskData);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from('tasks').insert({ ...taskData, user_id: user.id });
     if (!error) load();
     return { error };
   }
