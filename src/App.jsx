@@ -7,6 +7,9 @@ import { supabase } from './supabaseClient';
 
 import Auth from './components/Auth';
 import MainLayout from './layouts/MainLayout';
+import AdminLayout from './layouts/AdminLayout';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminCreateClientPage from './pages/admin/AdminCreateClientPage';
 import BatchesPage from './pages/BatchesPage';
 import MedicinesPage from './pages/MedicinesPage';
 import BatchLogPage from './pages/BatchLogPage';
@@ -48,6 +51,20 @@ function App() {
 
   if (!session) {
     return <Auth />;
+  }
+
+  const isAdmin = session.user?.app_metadata?.role === 'admin';
+
+  if (isAdmin) {
+    return (
+      <Routes>
+        <Route element={<AdminLayout />}>
+          <Route path="/" element={<AdminDashboardPage />} />
+          <Route path="/create-client" element={<AdminCreateClientPage />} />
+          <Route path="*" element={<AdminDashboardPage />} />
+        </Route>
+      </Routes>
+    );
   }
 
   return (
