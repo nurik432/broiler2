@@ -597,6 +597,7 @@ CREATE TABLE IF NOT EXISTS "public"."tasks" (
     "completed_at" timestamp with time zone,
     "created_by" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
+    "user_id" "uuid",
     CONSTRAINT "tasks_priority_check" CHECK (("priority" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text", 'urgent'::"text"]))),
     CONSTRAINT "tasks_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'in_progress'::"text", 'done'::"text", 'cancelled'::"text"])))
 );
@@ -611,7 +612,8 @@ CREATE TABLE IF NOT EXISTS "public"."workshops" (
     "capacity" integer,
     "description" "text",
     "is_active" boolean DEFAULT true,
-    "created_at" timestamp with time zone DEFAULT "now"()
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "user_id" "uuid"
 );
 
 
@@ -721,6 +723,14 @@ CREATE INDEX "idx_tasks_status" ON "public"."tasks" USING "btree" ("status");
 
 
 CREATE INDEX "idx_tasks_workshop_id" ON "public"."tasks" USING "btree" ("workshop_id");
+
+
+
+CREATE INDEX "idx_tasks_user_id" ON "public"."tasks" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_workshops_user_id" ON "public"."workshops" USING "btree" ("user_id");
 
 
 
@@ -859,6 +869,16 @@ ALTER TABLE ONLY "public"."sales"
 
 
 ALTER TABLE ONLY "public"."tasks"
+    ADD CONSTRAINT "tasks_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."workshops"
+    ADD CONSTRAINT "workshops_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."tasks"
     ADD CONSTRAINT "tasks_assignee_id_fkey" FOREIGN KEY ("assignee_id") REFERENCES "public"."employees"("id") ON DELETE SET NULL;
 
 
@@ -873,11 +893,11 @@ ALTER TABLE ONLY "public"."tasks"
 
 
 
-CREATE POLICY "Allow all for authenticated users" ON "public"."tasks" TO "authenticated" USING (true) WITH CHECK (true);
+CREATE POLICY "user_can_manage_own_tasks" ON "public"."tasks" USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
 
 
 
-CREATE POLICY "Allow all for authenticated users" ON "public"."workshops" TO "authenticated" USING (true) WITH CHECK (true);
+CREATE POLICY "user_can_manage_own_workshops" ON "public"."workshops" USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
 
 
 
