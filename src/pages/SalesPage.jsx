@@ -174,8 +174,8 @@ function SalesPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Учет продаж и поступлений</h1>
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Учет продаж и поступлений</h1>
                 <label className="flex items-center text-sm text-gray-600 cursor-pointer">
                     <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
                     <span className="ml-2">Показать продажи архивных партий</span>
@@ -245,8 +245,8 @@ function SalesPage() {
                                         </td>
                                         <td className="px-6 py-4" colSpan="2">
                                             <div className="flex gap-2 justify-end">
-                                                <button onClick={() => handleUpdateSale(sale.id)} className="font-medium text-green-600 hover:underline">Сохранить</button>
-                                                <button onClick={() => setEditingSaleId(null)} className="font-medium text-gray-500 hover:underline">Отмена</button>
+                                                <button onClick={() => handleUpdateSale(sale.id)} className="font-medium text-green-600 hover:underline px-2 py-2">Сохранить</button>
+                                                <button onClick={() => setEditingSaleId(null)} className="font-medium text-gray-500 hover:underline px-2 py-2">Отмена</button>
                                             </div>
                                         </td>
                                     </>
@@ -276,7 +276,7 @@ function SalesPage() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                    <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
                         <div className="p-6 border-b"><h3 className="text-xl font-semibold">Платежи по продаже</h3><p className="text-sm text-gray-500">от {new Date(selectedSale.sale_date).toLocaleDateString()} (Покупатель: {selectedSale.customer_name || 'Не указан'})</p></div>
-                        <div className="p-6 grid grid-cols-3 gap-4 text-center border-b">
+                        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center border-b">
                             <div><p className="text-sm text-gray-500">Всего к оплате</p><p className="font-bold text-lg">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(selectedSale.total_amount)}</p></div>
                             <div><p className="text-sm text-gray-500">Оплачено</p><p className="font-bold text-lg text-green-600">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(selectedSale.total_paid)}</p></div>
                             <div><p className="text-sm text-gray-500">Остаток</p><p className="font-bold text-lg text-red-600">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(selectedSale.balance)}</p></div>
@@ -300,13 +300,13 @@ function SalesPage() {
                                             <div className="flex items-center gap-2">
                                                 <input type="date" value={editPaymentFormData.payment_date} onChange={e => setEditPaymentFormData({...editPaymentFormData, payment_date: e.target.value})} className="p-1 border rounded w-full"/>
                                                 <input type="number" step="0.01" value={editPaymentFormData.amount} onChange={e => setEditPaymentFormData({...editPaymentFormData, amount: e.target.value})} className="p-1 border rounded w-full"/>
-                                                <button onClick={() => handleUpdatePayment(p.id)} className="text-green-600">✓</button>
-                                                <button onClick={() => setEditingPaymentId(null)} className="text-gray-500">✕</button>
+                                                <button onClick={() => handleUpdatePayment(p.id)} className="text-green-600 px-2 py-2">✓</button>
+                                                <button onClick={() => setEditingPaymentId(null)} className="text-gray-500 px-2 py-2">✕</button>
                                             </div>
                                         ) : (
                                             <div className="flex justify-between items-center">
                                                 <div><span>{new Date(p.payment_date).toLocaleDateString()}</span><span className="font-semibold ml-4">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(p.amount)}</span></div>
-                                                <div className="flex gap-3"><button onClick={() => handleEditPaymentClick(p)} className="text-xs text-yellow-600 hover:underline">Изм.</button><button onClick={() => handleDeletePayment(p.id)} className="text-xs text-red-600 hover:underline">Удал.</button></div>
+                                                <div className="flex gap-1"><button onClick={() => handleEditPaymentClick(p)} className="text-xs text-yellow-600 hover:underline px-2 py-2">Изм.</button><button onClick={() => handleDeletePayment(p.id)} className="text-xs text-red-600 hover:underline px-2 py-2">Удал.</button></div>
                                             </div>
                                         )}
                                     </div>

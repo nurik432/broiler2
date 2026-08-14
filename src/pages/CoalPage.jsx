@@ -363,12 +363,12 @@ function CoalPage() {
                                                 <button
                                                     onClick={() => handleToggleHidden(t.id, t.is_hidden)}
                                                     title={t.is_hidden ? 'Показать' : 'Скрыть'}
-                                                    className="text-gray-400 hover:text-gray-700 transition-colors">
+                                                    className="text-gray-400 hover:text-gray-700 transition-colors px-2 py-2 -my-2">
                                                     {t.is_hidden ? '👁️' : '🙈'}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(t.id)}
-                                                    className="text-red-400 hover:text-red-600 transition-colors">
+                                                    className="text-red-400 hover:text-red-600 transition-colors px-2 py-2 -my-2">
                                                     🗑️
                                                 </button>
                                             </div>

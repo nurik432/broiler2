@@ -354,7 +354,7 @@ export default function DebtTab() {
                                                                     <td className="px-3 py-2 text-gray-500">{p.description || '—'}</td>
                                                                     <td className="px-3 py-2 text-right">
                                                                         <button onClick={(e) => { e.stopPropagation(); handleDeletePayment(p.id); }}
-                                                                            className="text-red-400 hover:text-red-600 text-xs font-medium">Удалить</button>
+                                                                            className="text-red-400 hover:text-red-600 text-xs font-medium px-2 py-2 -my-2">Удалить</button>
                                                                     </td>
                                                                 </tr>
                                                             ))}

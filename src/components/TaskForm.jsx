@@ -53,7 +53,7 @@ export default function TaskForm({ employees, workshops, onSubmit, onClose, init
             style={{ ...inputStyle, width:'100%', minHeight:80, resize:'vertical' }} />
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap:12 }}>
           {/* Исполнитель */}
           <div>
             <label style={labelStyle}>Исполнитель *</label>
@@ -94,11 +94,11 @@ export default function TaskForm({ employees, workshops, onSubmit, onClose, init
         </div>
 
         {/* Создатель */}
-        <div>
+        <div className="w-full sm:w-1/2">
           <label style={labelStyle}>Создал (ваше имя)</label>
           <input value={form.created_by} onChange={set('created_by')}
             placeholder="Иванов И.И."
-            style={{ ...inputStyle, width:'50%' }} />
+            style={{ ...inputStyle, width:'100%' }} />
         </div>
       </div>
 
@@ -107,13 +107,13 @@ export default function TaskForm({ employees, workshops, onSubmit, onClose, init
           onClick={handleSubmit}
           disabled={submitting}
           style={{ padding:'8px 20px', background:'#4f46e5', color:'#fff',
-            border:'none', borderRadius:6, cursor:'pointer', fontWeight:'bold' }}
+            border:'none', borderRadius:6, cursor:'pointer', fontWeight:'bold', minHeight:44 }}
         >
           {submitting ? 'Сохранение...' : initialData ? 'Сохранить' : 'Создать задачу'}
         </button>
         <button onClick={onClose}
           style={{ padding:'8px 16px', background:'#f0f0f0', border:'1px solid #ccc',
-            borderRadius:6, cursor:'pointer' }}>
+            borderRadius:6, cursor:'pointer', minHeight:44 }}>
           Отмена
         </button>
       </div>
@@ -122,4 +122,4 @@ export default function TaskForm({ employees, workshops, onSubmit, onClose, init
 }
 
 const labelStyle = { display:'block', fontSize:13, color:'#555', marginBottom:4, fontWeight:'500' };
-const inputStyle  = { padding:'8px 10px', border:'1px solid #dee2e6', borderRadius:6, fontSize:14, boxSizing:'border-box' };
+const inputStyle  = { padding:'10px', border:'1px solid #dee2e6', borderRadius:6, fontSize:16, boxSizing:'border-box' };

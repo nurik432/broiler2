@@ -156,7 +156,7 @@ function ExpensesPage() {
                                     <td className="p-2"><input type="date" value={editFormData.expense_date} onChange={e => setEditFormData({...editFormData, expense_date: e.target.value})} className="p-1 border rounded w-full"/><input type="text" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} className="p-1 border rounded w-full mt-1"/></td>
                                     <td className="p-2"><select value={editFormData.batch_id} onChange={e => setEditFormData({...editFormData, batch_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Не привязывать --</option>{activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}</select></td>
                                     <td className="p-2"><input type="number" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} className="p-1 border rounded w-24"/></td>
-                                    <td className="px-6 py-4 text-right flex gap-2 justify-end" colSpan="2"><button onClick={() => handleUpdate(exp.id)} className="font-medium text-green-600">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500">Отмена</button></td>
+                                    <td className="px-6 py-4 text-right flex gap-1 justify-end" colSpan="2"><button onClick={() => handleUpdate(exp.id)} className="font-medium text-green-600 px-2 py-2">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500 px-2 py-2">Отмена</button></td>
                                 </>
                             ) : (
                                 <>
@@ -165,7 +165,7 @@ function ExpensesPage() {
                                     <td className="px-6 py-4"><p>{exp.description}</p><p className="text-xs text-gray-500">{exp.category}</p></td>
                                     <td className="px-6 py-4">{exp.batch_name ? <span className={`px-2 py-1 text-xs rounded-full ${exp.batch_is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>{exp.batch_name}</span> : '–'}</td>
                                     <td className="px-6 py-4 font-semibold">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(exp.amount)}</td>
-                                    <td className="px-6 py-4 text-right flex gap-4 justify-end"><button onClick={() => handleEditClick(exp)} className="font-medium text-blue-600">Редактировать</button><button onClick={() => handleDelete(exp.id)} className="font-medium text-red-600">Удалить</button></td>
+                                    <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleEditClick(exp)} className="font-medium text-blue-600 px-2 py-2">Редактировать</button><button onClick={() => handleDelete(exp.id)} className="font-medium text-red-600 px-2 py-2">Удалить</button></td>
                                 </>
                             )}
                         </tr>
@@ -178,8 +178,8 @@ function ExpensesPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Учет расходов</h1>
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Учет расходов</h1>
                 <label className="flex items-center text-sm text-gray-600 cursor-pointer">
                     <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
                     <span className="ml-2">Показать расходы архивных партий</span>
@@ -227,9 +227,9 @@ function ExpensesPage() {
 
             {selectedIds.size > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 border-t z-40 lg:pl-72 transition-all duration-300">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+                    <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
                         <span className="font-semibold text-gray-700">Выбрано: {selectedIds.size}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <select value={batchIdToAssign} onChange={e => setBatchIdToAssign(e.target.value)} className="p-2 border rounded-md bg-white">
                                 <option value="">-- Выберите партию --</option>
                                 {activeBatches.map(b => (<option key={b.id} value={b.id}>{b.batch_name}</option>))}

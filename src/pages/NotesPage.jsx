@@ -295,10 +295,10 @@ function NotesPage() {
                             key={note.id}
                             className="bg-yellow-100 p-4 rounded-lg shadow-sm relative group hover:shadow-md transition"
                         >
-                            {/* Кнопка удаления */}
+                            {/* Кнопка удаления — всегда видна на тач-устройствах, на десктопе появляется по hover */}
                             <button
                                 onClick={() => handleDeleteNote(note.id, note.audio_url)}
-                                className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                                 title="Удалить заметку"
                             >
                                 ✕

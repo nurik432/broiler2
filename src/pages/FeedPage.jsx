@@ -28,7 +28,7 @@ function FeedPage() {
     useEffect(() => {
         const saved = localStorage.getItem('feedPrices');
         if (saved) {
-            try { setFeedPrices(JSON.parse(saved)); } catch (e) {}
+            try { setFeedPrices(JSON.parse(saved)); } catch { /* некорректные сохранённые цены — игнорируем */ }
         }
     }, []);
 
@@ -125,8 +125,8 @@ function FeedPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Учет корма</h1>
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Учет корма</h1>
                 <label className="flex items-center text-sm text-gray-600 cursor-pointer">
                     <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
                     <span className="ml-2">Показать поставки для архивных партий</span>
@@ -230,7 +230,7 @@ function FeedPage() {
                                         <td className="p-2 text-xs text-gray-500">{((Number(editFormData.bags) || 0) * KG_PER_BAG).toFixed(0)} кг</td>
                                         <td className="p-2"></td>
                                         <td className="p-2"><select value={editFormData.batch_id} onChange={e => setEditFormData({...editFormData, batch_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Не привязывать --</option>{activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}</select></td>
-                                        <td className="px-6 py-4 text-right flex gap-2 justify-end"><button onClick={() => handleUpdate(d.id)} className="font-medium text-green-600">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500">Отмена</button></td>
+                                        <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleUpdate(d.id)} className="font-medium text-green-600 px-2 py-2">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500 px-2 py-2">Отмена</button></td>
                                     </>
                                 ) : (
                                     <>
@@ -247,7 +247,7 @@ function FeedPage() {
                                             })()}
                                         </td>
                                         <td className="px-6 py-4">{d.batch_name ? <span className={`text-xs rounded-full px-2 py-1 ${d.batch_is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>{d.batch_name}</span> : '–'}</td>
-                                        <td className="px-6 py-4 text-right flex gap-4 justify-end"><button onClick={() => handleEditClick(d)} className="font-medium text-blue-600 hover:underline">Редактировать</button><button onClick={() => handleDelete(d.id)} className="font-medium text-red-600 hover:underline">Удалить</button></td>
+                                        <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleEditClick(d)} className="font-medium text-blue-600 hover:underline px-2 py-2">Редактировать</button><button onClick={() => handleDelete(d.id)} className="font-medium text-red-600 hover:underline px-2 py-2">Удалить</button></td>
                                     </>
                                 )}
                             </tr>
