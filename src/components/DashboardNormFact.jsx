@@ -1,12 +1,40 @@
 import { getNormForDay } from '../constants/broilerStandards';
-import { calcMortality, forecastWeight, calcHistoricalMortality } from '../utils/normComparison';
+import { calcMortality, forecastWeight, calcHistoricalMortality, buildWeightSeries } from '../utils/normComparison';
 import { FEED_BAG_WEIGHT_G } from '../constants/broilerStandards';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const STATUS_COLOR = {
   ok:       '#28a745',
   warning:  '#ffc107',
   critical: '#dc3545',
 };
+
+const WEIGHT_ACTUAL_COLOR = '#28a745';
+const WEIGHT_NORM_COLOR = '#9ca3af';
+
+function WeightChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const rows = [
+    { key: 'actual', name: 'Факт', color: WEIGHT_ACTUAL_COLOR },
+    { key: 'forecast', name: 'Прогноз', color: WEIGHT_ACTUAL_COLOR },
+    { key: 'standard', name: 'Норма ROSS-308', color: WEIGHT_NORM_COLOR },
+  ];
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-md px-3 py-2 text-sm">
+      <p className="font-semibold text-gray-700 mb-1">День {label}</p>
+      {rows.map(r => {
+        const entry = payload.find(p => p.dataKey === r.key);
+        if (!entry || entry.value == null) return null;
+        return (
+          <p key={r.key} className="flex items-center gap-2 text-gray-600">
+            <span style={{ display: 'inline-block', width: 10, height: 2, background: r.color }} />
+            {r.name}: <strong className="text-gray-800">{entry.value} г</strong>
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 function getStatus(fact, norm) {
   const ratio = Math.abs((fact - norm) / norm);
@@ -31,6 +59,7 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
   const norm        = getNormForDay(lastAge);
   const mortality   = calcMortality(logs, initialBirds);
   const forecast    = forecastWeight(logs, 42);
+  const weightSeries = buildWeightSeries(logs, 42);
   const currentFlock = calcFlockSize(logs, initialBirds);
 
   // Потребление воды / корма на голову (последняя запись)
@@ -127,16 +156,49 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
       {/* === Вторая строка карточек === */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        {/* Карточка 5 — Прогноз массы к дню убоя */}
-        {forecast && norm && (
-          <div className="bg-white p-4 rounded-lg shadow-md border">
-            <h4 className="text-lg font-semibold mb-2">📈 Прогноз к дню убоя (42)</h4>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
-              <span>Текущий день:</span><strong className="text-gray-800">{lastAge}</strong>
-              <span>Текущая масса:</span><strong className="text-gray-800">{lastLog.weight ?? '—'} г</strong>
-              <span>Суточный прирост:</span><strong className="text-gray-800">{forecast.dailyGain} г/сут</strong>
-              <span>Прогноз к дню 42:</span><strong className="text-gray-800">{forecast.forecastWeight} г</strong>
-              <span>Норма к дню 42:</span><strong className="text-gray-800">{getNormForDay(42)?.weight} г</strong>
+        {/* Карточка 5 — Масса: факт vs норма vs прогноз */}
+        {weightSeries.length > 0 && (
+          <div className="bg-white p-4 rounded-lg shadow-md border sm:col-span-2">
+            <h4 className="text-lg font-semibold mb-2">📈 Масса: факт vs норма ROSS-308 vs прогноз</h4>
+            {forecast && norm && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-sm text-gray-600 mb-3">
+                <span>Тек. день: <strong className="text-gray-800">{lastAge}</strong></span>
+                <span>Тек. масса: <strong className="text-gray-800">{lastLog.weight ?? '—'} г</strong></span>
+                <span>Прирост/сут: <strong className="text-gray-800">{forecast.dailyGain} г</strong></span>
+                <span>Прогноз (42): <strong className="text-gray-800">{forecast.forecastWeight} г</strong></span>
+                <span>Норма (42): <strong className="text-gray-800">{getNormForDay(42)?.weight} г</strong></span>
+              </div>
+            )}
+            <div style={{ width: '100%', height: 280 }}>
+              <ResponsiveContainer>
+                <LineChart data={weightSeries} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid stroke="#e5e7eb" vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    label={{ value: 'День выращивания', position: 'insideBottom', offset: -2, fontSize: 12, fill: '#9ca3af' }}
+                  />
+                  <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} width={50} />
+                  <Tooltip content={<WeightChartTooltip />} cursor={{ stroke: WEIGHT_NORM_COLOR, strokeWidth: 1 }} />
+                  <Legend iconType="plainline" wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone" dataKey="standard" name="Норма ROSS-308"
+                    stroke={WEIGHT_NORM_COLOR} strokeWidth={2} strokeDasharray="4 4"
+                    dot={false} isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone" dataKey="actual" name="Факт"
+                    stroke={WEIGHT_ACTUAL_COLOR} strokeWidth={2}
+                    dot={{ r: 4, fill: WEIGHT_ACTUAL_COLOR, stroke: '#fff', strokeWidth: 2 }}
+                    connectNulls isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone" dataKey="forecast" name="Прогноз"
+                    stroke={WEIGHT_ACTUAL_COLOR} strokeWidth={2} strokeDasharray="4 4"
+                    dot={false} connectNulls isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}

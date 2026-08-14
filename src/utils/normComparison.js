@@ -2,6 +2,7 @@ import {
   getNormForDay,
   getWeekMortalityNorm,
   DEVIATION_THRESHOLDS,
+  ROSS308_STANDARDS,
 } from '../constants/broilerStandards';
 
 /**
@@ -104,6 +105,45 @@ export function forecastWeight(logs, targetDay = 42) {
   const daysLeft  = targetDay - last.age;
   const forecastWeight = Math.round(last.weight + dailyGain * daysLeft);
   return { forecastWeight, dailyGain: Math.round(dailyGain) };
+}
+
+/**
+ * Собрать по дням серию для графика массы: факт (только там, где есть взвешивание),
+ * норма ROSS-308 (на каждый день таблицы стандарта) и прогноз (линейная
+ * экстраполяция от последнего взвешивания до targetDay, тем же приростом, что и forecastWeight).
+ * @param {Array<{age: number, weight: number}>} logs
+ * @param {number} targetDay - целевой день убоя (обычно 42)
+ * @returns {Array<{day, actual: number|null, standard: number|null, forecast: number|null}>}
+ */
+export function buildWeightSeries(logs, targetDay = 42) {
+  const withWeight = (logs || [])
+    .filter(r => r.weight != null && r.weight > 0)
+    .sort((a, b) => a.age - b.age);
+
+  const forecast = forecastWeight(logs || [], targetDay);
+  const lastActual = withWeight[withWeight.length - 1] || null;
+
+  const maxStandardDay = ROSS308_STANDARDS[ROSS308_STANDARDS.length - 1]?.day || targetDay;
+  const lastDay = Math.min(Math.max(targetDay, lastActual?.age || 0), maxStandardDay);
+
+  const points = [];
+  for (let day = 1; day <= lastDay; day++) {
+    const norm = getNormForDay(day);
+    const actualLog = withWeight.find(r => r.age === day);
+    let forecastVal = null;
+    if (forecast && lastActual && day >= lastActual.age) {
+      forecastVal = day === lastActual.age
+        ? lastActual.weight
+        : Math.round(lastActual.weight + forecast.dailyGain * (day - lastActual.age));
+    }
+    points.push({
+      day,
+      actual: actualLog ? actualLog.weight : null,
+      standard: norm ? norm.weight : null,
+      forecast: forecastVal,
+    });
+  }
+  return points;
 }
 
 /**
