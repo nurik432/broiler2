@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { getNormForDay, FEED_BAG_WEIGHT_G } from '../constants/broilerStandards';
 import { syncSummaryBatchLog } from '../utils/summaryBatchSync';
@@ -47,20 +47,67 @@ export default function DailyEntryPage() {
       .order('name');
     setMedicines(medsData || []);
 
-    // 3. Загрузить текущие записи журнала за выбранный день для каждой активной партии
+    // 3. Загрузить текущие записи журнала за выбранный день одним запросом на все партии
     const logs = {};
-    for (const w of workshopsWithActive) {
-      const { data: logData } = await supabase
+    const batchIds = workshopsWithActive.map(w => w.activeBatch.id);
+    if (batchIds.length > 0) {
+      const { data: logsData } = await supabase
         .from('daily_logs')
         .select('*, medicine:medicines(name)')
-        .eq('batch_id', w.activeBatch.id)
-        .eq('log_date', todayDate)
-        .maybeSingle();
+        .in('batch_id', batchIds)
+        .eq('log_date', todayDate);
 
-      logs[w.id] = logData || null;
+      const logsByBatch = {};
+      (logsData || []).forEach(l => { logsByBatch[l.batch_id] = l; });
+      workshopsWithActive.forEach(w => { logs[w.id] = logsByBatch[w.activeBatch.id] || null; });
     }
     setTodayLogs(logs);
     setLoading(false);
+  }
+
+  // Перезагрузить запись журнала только для одного цеха (без полной перезагрузки страницы)
+  async function refreshWorkshopLog(workshop) {
+    const { data: logData } = await supabase
+      .from('daily_logs')
+      .select('*, medicine:medicines(name)')
+      .eq('batch_id', workshop.activeBatch.id)
+      .eq('log_date', todayDate)
+      .maybeSingle();
+
+    setTodayLogs(prev => ({ ...prev, [workshop.id]: logData || null }));
+  }
+
+  // Исправить уже сохранённое значение за сегодня (перезаписать, а не суммировать)
+  async function handleCorrect(workshop, field, rawValue) {
+    const existingLog = todayLogs[workshop.id];
+    if (!existingLog) return;
+
+    const numValue = Number(rawValue) || 0;
+    const updateData = {};
+
+    if (field === 'mortality_natural') {
+      updateData.mortality_natural = numValue;
+      updateData.mortality = numValue + (existingLog.mortality_halal || 0);
+    } else if (field === 'mortality_halal') {
+      updateData.mortality_halal = numValue;
+      updateData.mortality = (existingLog.mortality_natural || 0) + numValue;
+    } else if (field === 'daily_feed') {
+      updateData.daily_feed = numValue;
+    } else if (field === 'water_consumption') {
+      updateData.water_consumption = numValue;
+    }
+
+    const { error } = await supabase
+      .from('daily_logs')
+      .update(updateData)
+      .eq('id', existingLog.id);
+
+    if (error) {
+      alert('Ошибка: ' + error.message);
+      return;
+    }
+
+    await refreshWorkshopLog(workshop);
   }
 
   // Расчёт возраста партии
@@ -68,16 +115,6 @@ export default function DailyEntryPage() {
     const start = new Date(startDate);
     const current = new Date(todayDate);
     return Math.ceil(Math.abs(current - start) / (1000 * 60 * 60 * 24));
-  }
-
-  // Расчёт текущего поголовья (из всех записей журнала)
-  async function getCurrentFlock(batchId, initialQuantity) {
-    const { data } = await supabase
-      .from('daily_logs')
-      .select('mortality')
-      .eq('batch_id', batchId);
-    const totalDead = (data || []).reduce((sum, r) => sum + (r.mortality || 0), 0);
-    return initialQuantity - totalDead;
   }
 
   // Обновить поле ввода
@@ -182,8 +219,8 @@ export default function DailyEntryPage() {
       // Синхронизация "Общей партии"
       await syncSummaryBatchLog(todayDate, user.id);
 
-      // Перезагрузить данные
-      await loadAll();
+      // Обновить только этот цех, не перезагружая всю страницу
+      await refreshWorkshopLog(workshop);
     } catch (err) {
       alert('Ошибка: ' + err.message);
     }
@@ -226,6 +263,7 @@ export default function DailyEntryPage() {
               entry={entries[w.id] || {}}
               onUpdate={(field, value) => updateEntry(w.id, field, value)}
               onSubmit={() => handleSubmit(w)}
+              onCorrect={(field, value) => handleCorrect(w, field, value)}
               isSubmitting={submitting[w.id]}
               age={getAge(w.activeBatch.start_date)}
               todayDate={todayDate}
@@ -239,7 +277,7 @@ export default function DailyEntryPage() {
 }
 
 // --- Карточка ввода для одного цеха ---
-function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSubmitting, age, todayDate, medicines }) {
+function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, onCorrect, isSubmitting, age, todayDate, medicines }) {
   const batch = workshop.activeBatch;
   const norm = getNormForDay(age);
 
@@ -254,6 +292,10 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
   const currentDosage = todayLog?.dosage || null;
 
   const hasData = currentMortality > 0 || currentFeed > 0 || currentWater > 0 || currentWeight || currentMedicine;
+
+  // По умолчанию сворачиваем форму ввода, если за сегодня уже есть данные —
+  // так проще найти цеха, где ввод ещё не сделан, когда их много.
+  const [expanded, setExpanded] = useState(() => !hasData);
 
   return (
     <div style={{
@@ -276,29 +318,46 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
             Норма: масса {norm.weight}г · корм {norm.dailyFeed}г/гол · вода {norm.waterNorm}мл/гол
           </div>
         )}
+        {hasData && (
+          <button
+            onClick={() => setExpanded(e => !e)}
+            style={{
+              background: 'none', border: '1px solid #dee2e6', borderRadius: 6,
+              padding: '6px 12px', fontSize: 13, color: '#4f46e5', cursor: 'pointer',
+              minHeight: 32,
+            }}
+          >
+            {expanded ? 'Свернуть ▲' : 'Добавить ещё ▼'}
+          </button>
+        )}
       </div>
 
       <div style={{ padding: 16 }}>
         {/* Текущие итоги за день */}
         {hasData && (
           <div style={{
-            display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap',
+            display: 'flex', gap: 12, marginBottom: expanded ? 16 : 0, flexWrap: 'wrap',
           }}>
             <div style={{ ...statBox, borderColor: '#dc354530' }}>
               <div style={{ fontSize: 11, color: '#888' }}>💀 Падёж сегодня</div>
               <div style={{ fontSize: 20, fontWeight: 'bold', color: '#dc3545' }}>{currentMortality} гол.</div>
-              <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                🕊 Ест.: {currentMortalityNatural} · ☪ Хал.: {currentMortalityHalal}
+              <div style={{ fontSize: 11, color: '#999', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span>🕊 Ест.: {currentMortalityNatural}<EditableValue value={currentMortalityNatural} onSave={v => onCorrect('mortality_natural', v)} /></span>
+                <span>☪ Хал.: {currentMortalityHalal}<EditableValue value={currentMortalityHalal} onSave={v => onCorrect('mortality_halal', v)} /></span>
               </div>
             </div>
             <div style={{ ...statBox, borderColor: '#fd7e1430' }}>
               <div style={{ fontSize: 11, color: '#888' }}>🌾 Корм сегодня</div>
-              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fd7e14' }}>{currentFeed} мешк.</div>
+              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fd7e14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {currentFeed} мешк.<EditableValue value={currentFeed} onSave={v => onCorrect('daily_feed', v)} />
+              </div>
               <div style={{ fontSize: 11, color: '#bbb' }}>{(currentFeed * 40).toFixed(0)} кг</div>
             </div>
             <div style={{ ...statBox, borderColor: '#007bff30' }}>
               <div style={{ fontSize: 11, color: '#888' }}>💧 Вода сегодня</div>
-              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#007bff' }}>{currentWater} л</div>
+              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#007bff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {currentWater} л<EditableValue value={currentWater} onSave={v => onCorrect('water_consumption', v)} />
+              </div>
             </div>
             {currentWeight && (
               <div style={{ ...statBox, borderColor: '#28a74530' }}>
@@ -316,12 +375,15 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
           </div>
         )}
 
+        {expanded && (
+        <>
         {/* Форма ввода — Падёж */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
           <div style={{ flex: '1 1 110px', minWidth: 95 }}>
             <label style={labelStyle}>🕊 Падёж ест. (гол.)</label>
             <input
               type="number"
+              inputMode="numeric"
               value={entry.mortality_natural || ''}
               onChange={e => onUpdate('mortality_natural', e.target.value)}
               placeholder="0"
@@ -333,6 +395,7 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
             <label style={labelStyle}>☪ Падёж халяль (гол.)</label>
             <input
               type="number"
+              inputMode="numeric"
               value={entry.mortality_halal || ''}
               onChange={e => onUpdate('mortality_halal', e.target.value)}
               placeholder="0"
@@ -344,6 +407,7 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
             <label style={labelStyle}>🌾 Корм (мешков)</label>
             <input
               type="number"
+              inputMode="decimal"
               step="0.1"
               value={entry.feed || ''}
               onChange={e => onUpdate('feed', e.target.value)}
@@ -356,6 +420,7 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
             <label style={labelStyle}>💧 Вода (литров)</label>
             <input
               type="number"
+              inputMode="decimal"
               step="0.1"
               value={entry.water || ''}
               onChange={e => onUpdate('water', e.target.value)}
@@ -372,6 +437,7 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
             <label style={labelStyle}>⚖️ Масса (г/гол)</label>
             <input
               type="number"
+              inputMode="decimal"
               value={entry.weight || ''}
               onChange={e => onUpdate('weight', e.target.value)}
               placeholder="г"
@@ -409,7 +475,7 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
               style={{
                 padding: '8px 20px', background: '#4f46e5', color: '#fff',
                 border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold',
-                fontSize: 14, height: 38, whiteSpace: 'nowrap',
+                fontSize: 14, height: 44, whiteSpace: 'nowrap',
                 opacity: isSubmitting ? 0.6 : 1,
               }}
             >
@@ -420,17 +486,61 @@ function WorkshopEntryCard({ workshop, todayLog, entry, onUpdate, onSubmit, isSu
 
         {/* Подсказка */}
         <p style={{ fontSize: 11, color: '#bbb', marginTop: 8 }}>
-          Падёж, корм и вода суммируются с уже введёнными за {todayDate}. Масса и лекарство перезаписываются.
+          Падёж, корм и вода суммируются с уже введёнными за {todayDate}. Масса и лекарство перезаписываются. Чтобы исправить ошибочно введённое число — нажмите ✏️ рядом с ним выше.
         </p>
+        </>
+        )}
       </div>
     </div>
   );
 }
 
+// --- Быстрое исправление уже сохранённого значения (перезапись, а не сложение) ---
+function EditableValue({ value, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState('');
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setVal(String(value)); setEditing(true); }}
+        title="Исправить значение"
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
+          fontSize: 13, color: '#999', lineHeight: 1,
+        }}
+      >
+        ✏️
+      </button>
+    );
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', marginLeft: 4 }}>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        autoFocus
+        style={{ width: 56, padding: '4px 6px', fontSize: 14, border: '1px solid #4f46e5', borderRadius: 4 }}
+      />
+      <button
+        onClick={() => { onSave(val); setEditing(false); }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#28a745', fontSize: 16, padding: '4px 6px' }}
+      >✓</button>
+      <button
+        onClick={() => setEditing(false)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: 16, padding: '4px 6px' }}
+      >✕</button>
+    </span>
+  );
+}
+
 const labelStyle = { display: 'block', fontSize: 12, color: '#666', marginBottom: 4, fontWeight: '500' };
 const inputStyle = {
-  width: '100%', padding: '8px 10px', border: '1px solid #dee2e6',
-  borderRadius: 6, fontSize: 14, boxSizing: 'border-box',
+  width: '100%', padding: '10px', border: '1px solid #dee2e6',
+  borderRadius: 6, fontSize: 16, boxSizing: 'border-box',
 };
 const statBox = {
   padding: '8px 16px', borderRadius: 8, border: '1px solid',
