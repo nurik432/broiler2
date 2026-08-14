@@ -43,13 +43,13 @@ export default function WorkshopCard({ workshop, isSelected, onClick, onEdit, on
       }}
     >
       {/* Кнопки управления */}
-      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 8 }}>
         <button
           onClick={(e) => { e.stopPropagation(); onEdit && onEdit(); }}
           title="Редактировать"
           style={{
-            background: 'none', border: '1px solid #dee2e6', borderRadius: 4,
-            cursor: 'pointer', padding: '2px 6px', fontSize: 13, color: '#4f46e5',
+            background: 'none', border: '1px solid #dee2e6', borderRadius: 6,
+            cursor: 'pointer', minWidth: 36, minHeight: 36, fontSize: 15, color: '#4f46e5',
           }}
         >
           ✏️
@@ -58,8 +58,8 @@ export default function WorkshopCard({ workshop, isSelected, onClick, onEdit, on
           onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
           title="Удалить"
           style={{
-            background: 'none', border: '1px solid #dee2e6', borderRadius: 4,
-            cursor: 'pointer', padding: '2px 6px', fontSize: 13, color: '#dc3545',
+            background: 'none', border: '1px solid #dee2e6', borderRadius: 6,
+            cursor: 'pointer', minWidth: 36, minHeight: 36, fontSize: 15, color: '#dc3545',
           }}
         >
           🗑
@@ -68,7 +68,7 @@ export default function WorkshopCard({ workshop, isSelected, onClick, onEdit, on
 
       {/* Основная область — кликабельная */}
       <div onClick={onClick} style={{ cursor: 'pointer' }}>
-        <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 'bold', color: '#1f2937', paddingRight: 60 }}>
+        <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 'bold', color: '#1f2937', paddingRight: 80 }}>
           🏠 {workshop.name}
         </h4>
         {workshop.capacity && (

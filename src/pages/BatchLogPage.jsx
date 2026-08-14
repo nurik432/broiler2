@@ -108,16 +108,16 @@ const JournalTable = ({ logs, batch, medicines, fetchData }) => {
                                     <td className="px-3 py-4">{calculateAge(batch.start_date, editFormData.log_date)}</td>
                                     <td className="p-2">
                                         <div className="flex gap-1">
-                                            <input type="number" value={editFormData.mortality_natural} onChange={e => setEditFormData({...editFormData, mortality_natural: e.target.value})} placeholder="Ест" className="p-1 border rounded w-12 text-xs" />
-                                            <input type="number" value={editFormData.mortality_halal} onChange={e => setEditFormData({...editFormData, mortality_halal: e.target.value})} placeholder="Хал" className="p-1 border rounded w-12 text-xs" />
+                                            <input type="number" inputMode="numeric" value={editFormData.mortality_natural} onChange={e => setEditFormData({...editFormData, mortality_natural: e.target.value})} placeholder="Ест" className="p-1 border rounded w-12 text-sm" />
+                                            <input type="number" inputMode="numeric" value={editFormData.mortality_halal} onChange={e => setEditFormData({...editFormData, mortality_halal: e.target.value})} placeholder="Хал" className="p-1 border rounded w-12 text-sm" />
                                         </div>
                                     </td>
-                                    <td className="p-2"><input type="number" value={editFormData.weight} onChange={e => setEditFormData({...editFormData, weight: e.target.value})} placeholder="г/гол" className="p-1 border rounded w-20"/></td>
-                                    <td className="p-2"><input type="number" step="0.1" value={editFormData.water_consumption} onChange={e => setEditFormData({...editFormData, water_consumption: e.target.value})} placeholder="литров" className="p-1 border rounded w-20"/></td>
-                                    <td className="p-2"><input type="number" step="0.1" value={editFormData.daily_feed} onChange={e => setEditFormData({...editFormData, daily_feed: e.target.value})} placeholder="мешков" className="p-1 border rounded w-20"/></td>
+                                    <td className="p-2"><input type="number" inputMode="decimal" value={editFormData.weight} onChange={e => setEditFormData({...editFormData, weight: e.target.value})} placeholder="г/гол" className="p-1 border rounded w-20 text-base"/></td>
+                                    <td className="p-2"><input type="number" inputMode="decimal" step="0.1" value={editFormData.water_consumption} onChange={e => setEditFormData({...editFormData, water_consumption: e.target.value})} placeholder="литров" className="p-1 border rounded w-20 text-base"/></td>
+                                    <td className="p-2"><input type="number" inputMode="decimal" step="0.1" value={editFormData.daily_feed} onChange={e => setEditFormData({...editFormData, daily_feed: e.target.value})} placeholder="мешков" className="p-1 border rounded w-20 text-base"/></td>
                                     <td className="p-2"><select value={editFormData.medicine_id} onChange={e => setEditFormData({...editFormData, medicine_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">--</option>{medicines.map(med => <option key={med.id} value={med.id}>{med.name}</option>)}</select></td>
-                                    <td className="p-2"><input type="text" value={editFormData.dosage} onChange={e => setEditFormData({...editFormData, dosage: e.target.value})} className="p-1 border rounded w-20"/></td>
-                                    <td className="px-3 py-4 text-right flex gap-2 justify-end"><button onClick={() => handleUpdate(log.id)} className="font-medium text-green-600">✓</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500">✕</button></td>
+                                    <td className="p-2"><input type="text" value={editFormData.dosage} onChange={e => setEditFormData({...editFormData, dosage: e.target.value})} className="p-1 border rounded w-20 text-base"/></td>
+                                    <td className="px-3 py-4 text-right flex gap-2 justify-end"><button onClick={() => handleUpdate(log.id)} className="font-medium text-green-600 px-2 py-2">✓</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500 px-2 py-2">✕</button></td>
                                 </>
                             ) : (
                                 <>
@@ -142,7 +142,7 @@ const JournalTable = ({ logs, batch, medicines, fetchData }) => {
                                     </td>
                                     <td className="px-3 py-4">{log.medicine ? log.medicine.name : '–'}</td>
                                     <td className="px-3 py-4">{log.dosage || '–'}</td>
-                                    <td className="px-3 py-4 text-right">{batch.is_active && (<div className="flex gap-3 justify-end"><button onClick={() => handleEditClick(log)} className="font-medium text-blue-600">Ред.</button><button onClick={() => handleDelete(log.id)} className="font-medium text-red-600">Уд.</button></div>)}</td>
+                                    <td className="px-3 py-4 text-right">{batch.is_active && (<div className="flex gap-1 justify-end"><button onClick={() => handleEditClick(log)} className="font-medium text-blue-600 px-2 py-2">Ред.</button><button onClick={() => handleDelete(log.id)} className="font-medium text-red-600 px-2 py-2">Уд.</button></div>)}</td>
                                 </>
                             )}
                         </tr>

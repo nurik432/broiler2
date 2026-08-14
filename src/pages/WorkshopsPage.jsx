@@ -42,7 +42,8 @@ export default function WorkshopsPage() {
           onClick={() => { setShowForm(true); setEditingWorkshop(null); }}
           style={{
             padding: '8px 16px', background: '#4f46e5', color: '#fff',
-            border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold', fontSize: 14
+            border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold', fontSize: 14,
+            minHeight: 44,
           }}
         >
           + Добавить цех
@@ -123,7 +124,7 @@ function WorkshopForm({ initialData, onSubmit, onClose }) {
         {initialData ? '✏️ Редактировать цех' : '➕ Новый цех'}
       </h3>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>Название цеха *</label>
             <input
@@ -156,6 +157,7 @@ function WorkshopForm({ initialData, onSubmit, onClose }) {
             style={{
               padding: '8px 20px', background: '#4f46e5', color: '#fff',
               border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold',
+              minHeight: 44,
             }}
           >
             {submitting ? 'Сохранение...' : initialData ? 'Сохранить' : 'Создать цех'}
@@ -164,7 +166,7 @@ function WorkshopForm({ initialData, onSubmit, onClose }) {
             type="button" onClick={onClose}
             style={{
               padding: '8px 16px', background: '#f0f0f0', border: '1px solid #ccc',
-              borderRadius: 6, cursor: 'pointer',
+              borderRadius: 6, cursor: 'pointer', minHeight: 44,
             }}
           >
             Отмена
@@ -282,4 +284,4 @@ function AllWorkshopsSummary({ workshops }) {
 }
 
 const labelStyle = { display: 'block', fontSize: 13, color: '#555', marginBottom: 4, fontWeight: '500' };
-const inputStyle = { padding: '8px 10px', border: '1px solid #dee2e6', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' };
+const inputStyle = { padding: '10px', border: '1px solid #dee2e6', borderRadius: 6, fontSize: 16, boxSizing: 'border-box' };
