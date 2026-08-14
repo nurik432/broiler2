@@ -57,7 +57,7 @@ export default function SalariesPage() {
     const TabButton = ({ id, label }) => (
         <button
             onClick={() => setActiveTab(id)}
-            className={`px-4 py-2 rounded-xl transition-all font-medium ${
+            className={`px-4 py-2.5 rounded-xl transition-all font-medium text-sm sm:text-base whitespace-nowrap ${
                 activeTab === id
                     ? 'bg-indigo-600 text-white shadow-lg'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -68,9 +68,9 @@ export default function SalariesPage() {
     );
 
     return (
-        <div className="p-6 min-h-screen bg-gradient-to-br from-gray-100 to-gray-200">
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">Сотрудники и зарплаты</h1>
-            <div className="flex gap-4 mb-8">
+        <div className="p-4 sm:p-6 min-h-screen bg-gradient-to-br from-gray-100 to-gray-200">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Сотрудники и зарплаты</h1>
+            <div className="flex flex-wrap gap-2 sm:gap-4 mb-8">
                 <TabButton id="create" label="Создание сотрудника" />
                 <TabButton id="hire" label="Принятие и увольнение" />
                 <TabButton id="salary" label="Начисление зарплаты" />
