@@ -597,7 +597,7 @@ CREATE TABLE IF NOT EXISTS "public"."tasks" (
     "completed_at" timestamp with time zone,
     "created_by" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "user_id" "uuid",
+    "user_id" "uuid" NOT NULL,
     CONSTRAINT "tasks_priority_check" CHECK (("priority" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text", 'urgent'::"text"]))),
     CONSTRAINT "tasks_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'in_progress'::"text", 'done'::"text", 'cancelled'::"text"])))
 );
@@ -613,7 +613,7 @@ CREATE TABLE IF NOT EXISTS "public"."workshops" (
     "description" "text",
     "is_active" boolean DEFAULT true,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "user_id" "uuid"
+    "user_id" "uuid" NOT NULL
 );
 
 
@@ -897,7 +897,19 @@ CREATE POLICY "user_can_manage_own_tasks" ON "public"."tasks" USING (("auth"."ui
 
 
 
-CREATE POLICY "user_can_manage_own_workshops" ON "public"."workshops" USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
+CREATE POLICY "user_can_create_own_workshops" ON "public"."workshops" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "user_can_read_own_workshops" ON "public"."workshops" FOR SELECT USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "user_can_update_own_workshops" ON "public"."workshops" FOR UPDATE USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "user_can_delete_own_workshops" ON "public"."workshops" FOR DELETE USING (("auth"."uid"() = "user_id"));
 
 
 
