@@ -1,16 +1,115 @@
-# React + Vite
+# Ферма — учёт бройлеров
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Приложение для управления бройлерным (мясным) птицеводческим хозяйством: партии
+(«цеха»), суточные журналы (падёж, корм, вода, масса), сверка с нормой
+ROSS-308, зарплаты, расходы, продажи, задачи. Интерфейс на русском.
 
-Currently, two official plugins are available:
+Vite + React SPA, ходит напрямую в Supabase (без отдельного бэкенда). Полное
+описание архитектуры и доменной логики — в [CLAUDE.md](CLAUDE.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Быстрый старт
 
-## React Compiler
+```bash
+npm install
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Приложению нужен Supabase-проект — облачный или локальный (см. ниже). После
+того как определились с проектом, создайте `.env.local` в корне:
 
-## Expanding the ESLint configuration
+```bash
+VITE_SUPABASE_URL=<url проекта>
+VITE_SUPABASE_KEY=<anon key проекта>
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Затем:
+
+```bash
+npm run dev
+```
+
+Откроется `http://localhost:5173`.
+
+## Локальный Supabase через Docker
+
+Для локальной тестовой базы используется CLI Supabase, который поднимает
+полный стек (Postgres, Auth, PostgREST, Storage, Realtime, Studio) в Docker.
+Нужен установленный и **запущенный** Docker Desktop.
+
+```bash
+npx supabase start
+```
+
+Первый запуск скачивает образы и может занять несколько минут. По завершении
+команда выведет `API_URL` и `ANON_KEY` — их и нужно положить в `.env.local`
+(обычно `API_URL=http://127.0.0.1:54321`, `ANON_KEY` — длинный JWT).
+
+Studio (веб-панель для просмотра данных) будет на `http://127.0.0.1:54323`.
+
+Остановить стек: `npx supabase stop`.
+
+### Особенность схемы: базовая миграция
+
+Каталог `supabase/migrations/` содержит только *инкрементальные* миграции —
+они правят таблицы (`workshops`, `employees`, ...), которые сами не создают,
+потому что база схемы исторически накатывалась на прод не через CLI. Поэтому
+`supabase start` на чистой базе упадёт на первой же миграции, которая трогает
+несуществующую таблицу.
+
+Решение — миграция-снапшот из [schema.sql](schema.sql) с датой раньше всех
+остальных, чтобы она применялась первой:
+
+```bash
+cp schema.sql "supabase/migrations/$(date -u +%Y%m%d%H%M%S)_baseline_from_schema_sql.sql"
+```
+
+(Название файла должно сортироваться раньше `20260623102913_new-migration.sql`
+— самой ранней из существующих миграций, иначе используйте фиксированную
+более раннюю дату.) Если в проекте такого файла ещё нет — создайте его перед
+`supabase start`.
+
+### Создание тестового пользователя
+
+В приложении нет формы регистрации (`src/components/Auth.jsx` — только
+логин), поэтому первого пользователя нужно создать через Admin API локального
+GoTrue, используя `SERVICE_ROLE_KEY`/`SECRET_KEY` из вывода `supabase start`:
+
+```bash
+curl -s -X POST 'http://127.0.0.1:54321/auth/v1/admin/users' \
+  -H "apikey: <SECRET_KEY>" \
+  -H "Authorization: Bearer <SECRET_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@broiler.local","password":"testpass123","email_confirm":true}'
+```
+
+### Известные особенности
+
+- **Мало памяти на машине** — полный стек Supabase (~10 контейнеров) требует
+  ощутимо больше 1–2 ГБ. Если `supabase start` падает с
+  `fatal error: runtime: cannot allocate memory`, освободите память (остановите
+  другие Docker-проекты) и/или перезапустите WSL2 (`wsl --shutdown`, затем
+  снова открыть Docker Desktop) — это обычно чистит зависшую фрагментацию
+  памяти в WSL2-машине.
+- **`JWT issued at future` при первом логине** — транзиентный перекос часов
+  сразу после холодного старта стека. Обычно пропадает сам после
+  перезагрузки страницы/повторного логина через несколько секунд.
+
+## Скрипты
+
+```bash
+npm run dev       # Vite dev-сервер
+npm run build     # прод-сборка
+npm run lint      # ESLint по всему репозиторию
+npm run preview   # локальный просмотр прод-сборки
+```
+
+Тестов в проекте нет.
+
+## Деплой
+
+Продакшен разворачивается на Vercel; `vercel.json` перенаправляет все пути на
+`/index.html` для клиентского роутинга (`react-router-dom`).
+
+## Дальше
+
+Архитектура, доменная модель, сверка с нормой ROSS-308, синхронизация
+сводной партии, расчёт зарплаты — всё описано в [CLAUDE.md](CLAUDE.md).

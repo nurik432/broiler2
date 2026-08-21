@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/lint-on-edit.cjs 2>/dev/null || true",
+            "shell": "bash",
+            "statusMessage": "Linting edited file..."
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/check-daily-logs-sync.cjs 2>/dev/null || true",
+            "shell": "bash",
+            "statusMessage": "Checking daily_logs sync..."
+          }
+        ]
+      }
+    ]
+  }
+}
