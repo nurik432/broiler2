@@ -109,10 +109,17 @@ function FeedPage() {
         setIsSubmitting(false);
     };
 
-    const handleEditClick = (delivery) => { setEditingId(delivery.id); setEditFormData({ delivery_date: delivery.delivery_date, feed_type: delivery.feed_type, bags: delivery.quantity_kg / KG_PER_BAG, batch_id: delivery.batch_id || '' }); };
+    const handleEditClick = (delivery) => { setEditingId(delivery.id); setEditFormData({ delivery_date: delivery.delivery_date, feed_type: delivery.feed_type, bags: delivery.quantity_kg / KG_PER_BAG, batch_id: delivery.batch_id || '', price_per_kg: delivery.price_per_kg || '', transaction_type: delivery.transaction_type || 'purchase' }); };
     const handleUpdate = async (deliveryId) => {
-        const { delivery_date, feed_type, bags: editBags, batch_id } = editFormData;
-        const { error } = await supabase.from('feed_deliveries').update({ delivery_date, feed_type, quantity_kg: Number(editBags) * KG_PER_BAG, batch_id: batch_id || null }).eq('id', deliveryId);
+        const { delivery_date, feed_type, bags: editBags, batch_id, price_per_kg, transaction_type } = editFormData;
+        const quantityKg = Number(editBags) * KG_PER_BAG;
+        const priceNum = Number(price_per_kg);
+        const { error } = await supabase.from('feed_deliveries').update({
+            delivery_date, feed_type, quantity_kg: quantityKg, batch_id: batch_id || null,
+            price_per_kg: priceNum || null,
+            amount: priceNum > 0 ? quantityKg * priceNum : null,
+            transaction_type: priceNum > 0 ? transaction_type : null
+        }).eq('id', deliveryId);
         if (error) { alert(error.message); }
         else { setEditingId(null); await fetchData(); }
     };
@@ -207,7 +214,7 @@ function FeedPage() {
                                         <td className="p-2"><select value={editFormData.feed_type} onChange={e => setEditFormData({...editFormData, feed_type: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="старт">Старт</option><option value="рост">Рост</option><option value="финиш">Финиш</option></select></td>
                                         <td className="p-2"><input type="number" step="0.5" value={editFormData.bags} onChange={e => setEditFormData({...editFormData, bags: e.target.value})} className="p-1 border rounded w-24" placeholder="меш."/></td>
                                         <td className="p-2 text-xs text-gray-500">{((Number(editFormData.bags) || 0) * KG_PER_BAG).toFixed(0)} кг</td>
-                                        <td className="p-2"></td>
+                                        <td className="p-2"><input type="number" step="0.01" value={editFormData.price_per_kg} onChange={e => setEditFormData({...editFormData, price_per_kg: e.target.value})} className="p-1 border rounded w-20" placeholder="цена/кг"/></td>
                                         <td className="p-2"><select value={editFormData.batch_id} onChange={e => setEditFormData({...editFormData, batch_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Не привязывать --</option>{activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}</select></td>
                                         <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleUpdate(d.id)} className="font-medium text-green-600 px-2 py-2">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500 px-2 py-2">Отмена</button></td>
                                     </>
