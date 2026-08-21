@@ -14,7 +14,10 @@ function SalesPage() {
 
     // --- Состояния для формы ДОБАВЛЕНИЯ ---
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-    const [customer, setCustomer] = useState('');
+    const [customers, setCustomers] = useState([]);
+    const [selectedCustomerId, setSelectedCustomerId] = useState('');
+    const [newCustomerName, setNewCustomerName] = useState('');
+    const [isAddingCustomer, setIsAddingCustomer] = useState(false);
     const [weight, setWeight] = useState('');
     const [price, setPrice] = useState('');
     const [selectedBatchId, setSelectedBatchId] = useState('');
@@ -44,9 +47,10 @@ function SalesPage() {
 
     const fetchAllData = async () => {
         setLoading(true);
-        const [salesResponse, batchesResponse] = await Promise.all([
+        const [salesResponse, batchesResponse, customersResponse] = await Promise.all([
             supabase.rpc('get_sales_with_stats'),
-            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null'),
+            supabase.from('customers').select('id, full_name').order('full_name')
         ]);
 
         if (salesResponse.error) { console.error('Ошибка загрузки продаж:', salesResponse.error); }
@@ -55,7 +59,25 @@ function SalesPage() {
         if (batchesResponse.error) { console.error("Ошибка загрузки партий:", batchesResponse.error); }
         else { setActiveBatches(batchesResponse.data); }
 
+        if (customersResponse.error) { console.error("Ошибка загрузки клиентов:", customersResponse.error); }
+        else { setCustomers(customersResponse.data); }
+
         setLoading(false);
+    };
+
+    const handleAddCustomer = async () => {
+        const name = newCustomerName.trim();
+        if (!name) return;
+        setIsAddingCustomer(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase.from('customers').insert([{ full_name: name, user_id: user.id }]).select().single();
+        if (error) { alert(error.message); }
+        else {
+            setCustomers(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+            setSelectedCustomerId(data.id);
+            setNewCustomerName('');
+        }
+        setIsAddingCustomer(false);
     };
 
     useEffect(() => {
@@ -92,19 +114,19 @@ function SalesPage() {
         e.preventDefault();
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
-        const { error } = await supabase.from('sales').insert([{ sale_date: date, customer_name: customer, weight_kg: Number(weight), price_per_kg: Number(price), user_id: user.id, batch_id: selectedBatchId || null }]);
+        const { error } = await supabase.from('sales').insert([{ sale_date: date, customer_id: selectedCustomerId || null, weight_kg: Number(weight), price_per_kg: Number(price), user_id: user.id, batch_id: selectedBatchId || null }]);
         if (error) { alert(error.message); }
         else {
-            setDate(new Date().toISOString().slice(0, 10)); setCustomer(''); setWeight(''); setPrice(''); setSelectedBatchId('');
+            setDate(new Date().toISOString().slice(0, 10)); setSelectedCustomerId(''); setWeight(''); setPrice(''); setSelectedBatchId('');
             await fetchAllData();
             handleResetFilter();
         }
         setIsSubmitting(false);
     };
 
-    const handleEditSaleClick = (sale) => { setEditingSaleId(sale.id); setEditSaleFormData({ sale_date: sale.sale_date, customer_name: sale.customer_name || '', weight_kg: sale.weight_kg, price_per_kg: sale.price_per_kg, batch_id: sale.batch_id || '' }); };
+    const handleEditSaleClick = (sale) => { setEditingSaleId(sale.id); setEditSaleFormData({ sale_date: sale.sale_date, customer_id: sale.customer_id || '', weight_kg: sale.weight_kg, price_per_kg: sale.price_per_kg, batch_id: sale.batch_id || '' }); };
     const handleUpdateSale = async (saleId) => {
-        const { error } = await supabase.from('sales').update({ ...editSaleFormData, weight_kg: Number(editSaleFormData.weight_kg), price_per_kg: Number(editSaleFormData.price_per_kg), batch_id: editSaleFormData.batch_id || null }).eq('id', saleId);
+        const { error } = await supabase.from('sales').update({ ...editSaleFormData, weight_kg: Number(editSaleFormData.weight_kg), price_per_kg: Number(editSaleFormData.price_per_kg), batch_id: editSaleFormData.batch_id || null, customer_id: editSaleFormData.customer_id || null }).eq('id', saleId);
         if (error) { alert(error.message); }
         else { setEditingSaleId(null); await fetchAllData(); handleResetFilter(); }
     };
@@ -202,7 +224,17 @@ function SalesPage() {
                 <h2 className="text-2xl font-semibold mb-4">Добавить продажу</h2>
                 <form onSubmit={handleSubmitSale} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div><label className="block text-sm font-medium">Дата</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="mt-1 w-full p-2 border rounded-md"/></div>
-                    <div className="md:col-span-1"><label className="block text-sm font-medium">Покупатель</label><input type="text" value={customer} onChange={e => setCustomer(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
+                    <div className="md:col-span-1">
+                        <label className="block text-sm font-medium">Покупатель</label>
+                        <select value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)} className="mt-1 w-full p-2 border rounded bg-white">
+                            <option value="">-- Без клиента --</option>
+                            {customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                        </select>
+                        <div className="mt-1 flex gap-1">
+                            <input type="text" placeholder="+ Новый клиент" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} className="flex-1 p-1 text-sm border rounded"/>
+                            <button type="button" onClick={handleAddCustomer} disabled={isAddingCustomer || !newCustomerName.trim()} className="px-2 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">+</button>
+                        </div>
+                    </div>
                     <div><label className="block text-sm font-medium">Вес (кг)</label><input type="number" step="0.01" value={weight} onChange={e => setWeight(e.target.value)} required className="mt-1 w-full p-2 border rounded-md"/></div>
                     <div><label className="block text-sm font-medium">Цена за кг</label><input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required className="mt-1 w-full p-2 border rounded-md"/></div>
                     <div className="md:col-span-1"><label className="block text-sm font-medium">К Партии</label>
@@ -236,7 +268,7 @@ function SalesPage() {
                                 {editingSaleId === sale.id ? (
                                     <>
                                         <td className="p-2"><input type="date" value={editSaleFormData.sale_date} onChange={e => setEditSaleFormData({...editSaleFormData, sale_date: e.target.value})} className="p-1 border rounded w-full"/></td>
-                                        <td className="p-2"><input type="text" value={editSaleFormData.customer_name} onChange={e => setEditSaleFormData({...editSaleFormData, customer_name: e.target.value})} className="p-1 border rounded w-full"/></td>
+                                        <td className="p-2"><select value={editSaleFormData.customer_id} onChange={e => setEditSaleFormData({...editSaleFormData, customer_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Без клиента --</option>{customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></td>
                                         <td className="p-2">
                                             <input type="number" step="0.01" value={editSaleFormData.weight_kg} onChange={e => setEditSaleFormData({...editSaleFormData, weight_kg: e.target.value})} className="p-1 border rounded w-24 mb-1"/>
                                             <input type="number" step="0.01" value={editSaleFormData.price_per_kg} onChange={e => setEditSaleFormData({...editSaleFormData, price_per_kg: e.target.value})} className="p-1 border rounded w-24"/>
