@@ -14,16 +14,37 @@ function BatchReportPage() {
         const fetchReport = async () => {
             setLoading(true);
 
-            // Вызываем нашу новую, точную SQL-функцию, передавая ей ID партии
-            const { data, error: rpcError } = await supabase.rpc('generate_batch_report', {
-                p_batch_id: batchId
-            });
+            const { data: batchRow, error: batchError } = await supabase
+                .from('broiler_batches')
+                .select('is_summary, batch_name')
+                .eq('id', batchId)
+                .single();
 
-            if (rpcError) {
-                console.error("Ошибка при генерации отчета:", rpcError);
-                setError("Не удалось сгенерировать отчет. Убедитесь, что партия существует и у вас есть к ней доступ.");
+            if (batchError) {
+                console.error("Ошибка при загрузке партии:", batchError);
+                setError("Не удалось загрузить партию.");
+                setLoading(false);
+                return;
+            }
+
+            if (batchRow.is_summary) {
+                const { data, error: rpcError } = await supabase.rpc('get_active_summary_report');
+                if (rpcError) {
+                    console.error("Ошибка при генерации сводного отчета:", rpcError);
+                    setError("Не удалось сгенерировать сводный отчет.");
+                } else {
+                    setReport({ ...data[0], batch_name: batchRow.batch_name, is_summary: true });
+                }
             } else {
-                setReport(data);
+                const { data, error: rpcError } = await supabase.rpc('generate_batch_report', {
+                    p_batch_id: batchId
+                });
+                if (rpcError) {
+                    console.error("Ошибка при генерации отчета:", rpcError);
+                    setError("Не удалось сгенерировать отчет. Убедитесь, что партия существует и у вас есть к ней доступ.");
+                } else {
+                    setReport(data);
+                }
             }
             setLoading(false);
         };
@@ -57,9 +78,14 @@ function BatchReportPage() {
             <div className="bg-white p-6 md:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
                 <h1 className="text-3xl font-bold text-gray-800">Финансовый отчет</h1>
                 <h2 className="text-xl font-semibold text-indigo-600 mb-2">{report.batch_name}</h2>
-                <p className="text-gray-500 mb-6 border-b pb-4">
-                    Период: {new Date(report.start_date).toLocaleDateString()} – {new Date(report.end_date).toLocaleDateString()}
-                </p>
+                {!report.is_summary && (
+                    <p className="text-gray-500 mb-6 border-b pb-4">
+                        Период: {new Date(report.start_date).toLocaleDateString()} – {new Date(report.end_date).toLocaleDateString()}
+                    </p>
+                )}
+                {report.is_summary && (
+                    <p className="text-gray-500 mb-6 border-b pb-4">Сводка по всем активным партиям</p>
+                )}
 
                 <div className="space-y-6">
                     {/* --- ДОХОДЫ --- */}
@@ -75,6 +101,22 @@ function BatchReportPage() {
                     <div>
                         <h3 className="text-lg font-semibold mb-2 text-gray-700">Расходы</h3>
                         <div className="space-y-2 bg-red-50 p-3 rounded-lg">
+                            {report.is_summary && (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <p>Корм:</p>
+                                        <p className="font-semibold">{formatCurrency(report.total_feed_cost)}</p>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <p>Лекарства:</p>
+                                        <p className="font-semibold">{formatCurrency(report.total_medicine_cost)}</p>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <p>Уголь:</p>
+                                        <p className="font-semibold">{formatCurrency(report.total_coal_cost)}</p>
+                                    </div>
+                                </>
+                            )}
                             <div className="flex justify-between items-center">
                                 <p>Расходы (привязанные):</p>
                                 <p className="font-semibold">{formatCurrency(report.total_expenses)}</p>
