@@ -8,6 +8,7 @@ function MedicinesPage() {
     // --- Данные ---
     const [transactions, setTransactions] = useState([]);
     const [medicines, setMedicines] = useState([]);
+    const [activeBatches, setActiveBatches] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // --- Вкладки: purchase / debt / payment / catalog ---
@@ -24,6 +25,7 @@ function MedicinesPage() {
     const [pricePerUnit, setPricePerUnit] = useState('');
     const [description, setDescription] = useState('');
     const [company, setCompany] = useState('');
+    const [selectedBatchId, setSelectedBatchId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // --- Фильтр по фирме ---
@@ -38,13 +40,14 @@ function MedicinesPage() {
     // --- Загрузка данных ---
     const fetchData = async () => {
         setLoading(true);
-        const [transRes, medsRes] = await Promise.all([
+        const [transRes, medsRes, batchesRes] = await Promise.all([
             supabase
                 .from('medicine_transactions')
                 .select('*, medicine:medicines(name)')
                 .order('transaction_date', { ascending: false })
                 .order('created_at', { ascending: false }),
-            supabase.from('medicines').select('id, name').order('name')
+            supabase.from('medicines').select('id, name').order('name'),
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
         ]);
 
         if (transRes.error) console.error('Ошибка транзакций:', transRes.error);
@@ -52,6 +55,9 @@ function MedicinesPage() {
 
         if (medsRes.error) console.error('Ошибка лекарств:', medsRes.error);
         else setMedicines(medsRes.data);
+
+        if (batchesRes.error) console.error('Ошибка партий:', batchesRes.error);
+        else setActiveBatches(batchesRes.data);
 
         setLoading(false);
     };
@@ -129,13 +135,14 @@ function MedicinesPage() {
             amount: totalAmount,
             description: description || null,
             company: company || null,
+            batch_id: selectedBatchId || null,
             user_id: user.id
         }]);
 
         if (error) {
             alert('Ошибка: ' + error.message);
         } else {
-            setQuantity(''); setPricePerUnit(''); setDescription(''); setMedicineId(''); setCompany('');
+            setQuantity(''); setPricePerUnit(''); setDescription(''); setMedicineId(''); setCompany(''); setSelectedBatchId('');
             await fetchData();
         }
         setIsSubmitting(false);
@@ -253,6 +260,14 @@ function MedicinesPage() {
                     <datalist id="company-suggestions">
                         {uniqueCompanies.map(c => <option key={c} value={c} />)}
                     </datalist>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Партия</label>
+                    <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)}
+                        className="mt-1 w-full p-2 border rounded-md bg-white">
+                        <option value="">-- Не привязывать --</option>
+                        {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
+                    </select>
                 </div>
             </div>
             {quantity && pricePerUnit && (
