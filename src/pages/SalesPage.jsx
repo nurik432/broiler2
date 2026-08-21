@@ -34,6 +34,13 @@ function SalesPage() {
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
 
+    // --- Состояния для окна "Новое поступление" ---
+    const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
+    const [newPaymentCustomerId, setNewPaymentCustomerId] = useState('');
+    const [newPaymentAmount, setNewPaymentAmount] = useState('');
+    const [newPaymentDate, setNewPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
     // --- Состояния для РЕДАКТИРОВАНИЯ ПЛАТЕЖА ---
     const [editingPaymentId, setEditingPaymentId] = useState(null);
     const [editPaymentFormData, setEditPaymentFormData] = useState({});
@@ -163,6 +170,48 @@ function SalesPage() {
         }
     };
 
+    const handleSubmitNewPayment = async (e) => {
+        e.preventDefault();
+        if (!newPaymentCustomerId) { alert('Выберите клиента.'); return; }
+        const amount = Number(newPaymentAmount);
+        if (!(amount > 0)) { alert('Сумма должна быть больше нуля.'); return; }
+
+        setIsProcessingPayment(true);
+        const { data: freshSales, error: fetchError } = await supabase.rpc('get_sales_with_stats');
+        if (fetchError) { alert(fetchError.message); setIsProcessingPayment(false); return; }
+
+        const unpaidSales = freshSales
+            .filter(s => s.customer_id === newPaymentCustomerId && s.balance > 0)
+            .sort((a, b) => new Date(a.sale_date) - new Date(b.sale_date));
+
+        const totalOwed = unpaidSales.reduce((sum, s) => sum + s.balance, 0);
+        if (amount > totalOwed) {
+            alert(`У клиента остаток всего ${totalOwed.toFixed(2)} TJS, введено ${amount.toFixed(2)} TJS.`);
+            setIsProcessingPayment(false);
+            return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        let remaining = amount;
+        const rowsToInsert = [];
+        for (const sale of unpaidSales) {
+            if (remaining <= 0) break;
+            const chunk = Math.min(remaining, sale.balance);
+            rowsToInsert.push({ sale_id: sale.id, payment_date: newPaymentDate, amount: chunk, user_id: user.id });
+            remaining -= chunk;
+        }
+
+        const { error: insertError } = await supabase.from('payments').insert(rowsToInsert);
+        if (insertError) { alert(insertError.message); }
+        else {
+            setNewPaymentCustomerId(''); setNewPaymentAmount('');
+            setIsNewPaymentModalOpen(false);
+            await fetchAllData();
+            handleResetFilter();
+        }
+        setIsProcessingPayment(false);
+    };
+
     const handleEditPaymentClick = (payment) => { setEditingPaymentId(payment.id); setEditPaymentFormData({ payment_date: payment.payment_date, amount: payment.amount }); };
     const handleUpdatePayment = async (paymentId) => {
         const { error } = await supabase.from('payments').update({ ...editPaymentFormData, amount: Number(editPaymentFormData.amount) }).eq('id', paymentId);
@@ -198,10 +247,13 @@ function SalesPage() {
         <div>
             <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Учет продаж и поступлений</h1>
-                <label className="flex items-center text-sm text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
-                    <span className="ml-2">Показать продажи архивных партий</span>
-                </label>
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setIsNewPaymentModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">+ Новое поступление</button>
+                    <label className="flex items-center text-sm text-gray-600 cursor-pointer">
+                        <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                        <span className="ml-2">Показать продажи архивных партий</span>
+                    </label>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
@@ -350,6 +402,35 @@ function SalesPage() {
                             </div>
                         </div>
                         <div className="p-4 bg-gray-50 text-right rounded-b-lg"><button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Закрыть</button></div>
+                    </div>
+                </div>
+            )}
+
+            {isNewPaymentModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="p-6 border-b"><h3 className="text-xl font-semibold">Новое поступление</h3></div>
+                        <form onSubmit={handleSubmitNewPayment} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium">Клиент</label>
+                                <select value={newPaymentCustomerId} onChange={e => setNewPaymentCustomerId(e.target.value)} required className="mt-1 w-full p-2 border rounded bg-white">
+                                    <option value="">-- Выберите клиента --</option>
+                                    {customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Дата</label>
+                                <input type="date" value={newPaymentDate} onChange={e => setNewPaymentDate(e.target.value)} required className="mt-1 w-full p-2 border rounded"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Сумма</label>
+                                <input type="number" step="0.01" value={newPaymentAmount} onChange={e => setNewPaymentAmount(e.target.value)} required className="mt-1 w-full p-2 border rounded"/>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setIsNewPaymentModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Отмена</button>
+                                <button type="submit" disabled={isProcessingPayment} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">{isProcessingPayment ? 'Обработка...' : 'Провести'}</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
