@@ -42,7 +42,7 @@ function ExpensesPage() {
         setLoading(true);
         const [expensesRes, batchesRes] = await Promise.all([
             supabase.rpc('get_expenses'),
-            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
+            supabase.from('broiler_batches').select('id, batch_name, initial_quantity').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
         ]);
         if (expensesRes.error) { console.error('Ошибка:', expensesRes.error); }
         else { setAllExpenses(expensesRes.data); }
@@ -50,8 +50,9 @@ function ExpensesPage() {
         else {
             const batches = batchesRes.data || [];
             setActiveBatches(batches);
-            if (batches.length === 1) {
-                setSelectedBatchId(prev => prev || batches[0].id);
+            const biggest = batches.reduce((max, b) => (!max || b.initial_quantity > max.initial_quantity) ? b : max, null);
+            if (biggest) {
+                setSelectedBatchId(prev => prev || biggest.id);
             }
         }
         setLoading(false);
