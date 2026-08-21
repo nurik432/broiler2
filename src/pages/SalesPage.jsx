@@ -46,7 +46,7 @@ function SalesPage() {
         setLoading(true);
         const [salesResponse, batchesResponse] = await Promise.all([
             supabase.rpc('get_sales_with_stats'),
-            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true)
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
         ]);
 
         if (salesResponse.error) { console.error('Ошибка загрузки продаж:', salesResponse.error); }
