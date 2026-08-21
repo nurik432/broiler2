@@ -92,7 +92,7 @@ function BatchReportPage() {
                     <div>
                         <h3 className="text-lg font-semibold mb-2 text-gray-700">Доходы</h3>
                         <div className="flex justify-between items-center bg-green-50 p-3 rounded-lg">
-                            <p>Общая сумма продаж (привязанных):</p>
+                            <p>{report.is_summary ? 'Общая сумма продаж:' : 'Общая сумма продаж (привязанных):'}</p>
                             <p className="font-bold text-lg text-green-600">{formatCurrency(report.total_sales)}</p>
                         </div>
                     </div>
@@ -118,11 +118,11 @@ function BatchReportPage() {
                                 </>
                             )}
                             <div className="flex justify-between items-center">
-                                <p>Расходы (привязанные):</p>
+                                <p>{report.is_summary ? 'Расходы:' : 'Расходы (привязанные):'}</p>
                                 <p className="font-semibold">{formatCurrency(report.total_expenses)}</p>
                             </div>
                             <div className="flex justify-between items-center">
-                                <p>Зарплаты (привязанные):</p>
+                                <p>{report.is_summary ? 'Зарплаты:' : 'Зарплаты (привязанные):'}</p>
                                 <p className="font-semibold">{formatCurrency(report.total_salaries)}</p>
                             </div>
                         </div>
@@ -130,6 +130,12 @@ function BatchReportPage() {
 
                     {/* --- ИТОГ --- */}
                     <div className="border-t-2 border-dashed pt-6 mt-6">
+                        {report.is_summary && (
+                            <div className="flex justify-between items-center text-lg font-semibold p-3 mb-3 rounded-lg bg-gray-50">
+                                <p>Итого затрат:</p>
+                                <p>{formatCurrency(report.total_cost)}</p>
+                            </div>
+                        )}
                         <div className="flex justify-between items-center text-xl font-bold p-4 rounded-lg bg-gray-100">
                             <p>Итоговая прибыль:</p>
                             <p className={report.profit >= 0 ? 'text-green-600' : 'text-red-600'}>

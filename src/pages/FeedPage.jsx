@@ -168,7 +168,7 @@ function FeedPage() {
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Добавить приход корма</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-8 gap-4 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 items-end">
                         <div><label className="block text-sm font-medium">Дата прихода</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="mt-1 w-full p-2 border rounded-md"/></div>
                         <div><label className="block text-sm font-medium">Тип корма</label><select value={feedType} onChange={e => setFeedType(e.target.value)} required className="mt-1 w-full p-2 border rounded-md bg-white"><option value="старт">Старт</option><option value="рост">Рост</option><option value="финиш">Финиш</option></select></div>
                         <div>

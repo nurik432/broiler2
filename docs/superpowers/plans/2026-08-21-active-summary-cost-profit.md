@@ -850,13 +850,28 @@ git commit -m "feat: add report link for the summary batch"
 Production runs on Vercel + a separate cloud Supabase project (not this
 local Docker stack). Once all tasks above are verified locally:
 
-1. Apply the two new migrations (`20260821120000_add_cost_columns.sql`,
-   `20260821120100_add_get_active_summary_report.sql`) to the production
-   Supabase project — via `npx supabase db push` with production
+1. Apply all five migrations added by this plan, in filename order, to the
+   production Supabase project — via `npx supabase db push` with production
    credentials, or by pasting the SQL into the Supabase Dashboard's SQL
-   editor. Exact method to be confirmed with the project owner at deploy
-   time (out of scope for this plan — it needs production credentials this
-   workspace doesn't have).
+   editor:
+   - `20260821120000_add_cost_columns.sql`
+   - `20260821120100_add_get_active_summary_report.sql`
+   - `20260821130000_fix_get_feed_deliveries_columns.sql` (fixes
+     `get_feed_deliveries()`)
+   - `20260821140000_fix_get_batches_with_stats_is_summary.sql` (fixes
+     `get_batches_with_stats()`)
+   - `20260821150000_fix_summary_report_expense_scope_and_null_summary.sql`
+     (fixes `get_active_summary_report()`)
+
+   All five must be applied together, in order. Applying only the first two
+   would leave `get_feed_deliveries()` broken (the `/feed` page would fail
+   to load with a Postgres 42804 error) and would leave the summary batch's
+   "Отчет" link non-functional (`get_batches_with_stats()` wouldn't expose
+   `is_summary`, and `get_active_summary_report()` would still count
+   personal expenses as farm cost and could silently drop batches with a
+   NULL `is_summary`). Exact deploy method to be confirmed with the project
+   owner at deploy time (out of scope for this plan — it needs production
+   credentials this workspace doesn't have).
 2. Regenerate `schema.sql` from the production database afterward (e.g.
    `npx supabase db dump --schema public -f schema.sql` against production)
    so it stays the accurate reference snapshot CLAUDE.md describes.
