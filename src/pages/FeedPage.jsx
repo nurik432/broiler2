@@ -23,20 +23,9 @@ function FeedPage() {
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
-    const [feedPrices, setFeedPrices] = useState({ start: 0, growth: 0, finish: 0 });
-
-    useEffect(() => {
-        const saved = localStorage.getItem('feedPrices');
-        if (saved) {
-            try { setFeedPrices(JSON.parse(saved)); } catch { /* некорректные сохранённые цены — игнорируем */ }
-        }
-    }, []);
-
-    const handlePriceChange = (type, value) => {
-        const newPrices = { ...feedPrices, [type]: Number(value) };
-        setFeedPrices(newPrices);
-        localStorage.setItem('feedPrices', JSON.stringify(newPrices));
-    };
+    const [pricePerKg, setPricePerKg] = useState('');
+    const [transactionType, setTransactionType] = useState('purchase');
+    const [company, setCompany] = useState('');
 
     const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(value || 0);
 
@@ -45,7 +34,7 @@ function FeedPage() {
         setLoading(true);
         const [deliveriesRes, batchesRes] = await Promise.all([
             supabase.rpc('get_feed_deliveries'),
-            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true)
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
         ]);
 
         if (deliveriesRes.error) {
@@ -84,15 +73,15 @@ function FeedPage() {
             return acc;
         }, { start: 0, growth: 0, finish: 0 });
         const b = { start: kg.start / KG_PER_BAG, growth: kg.growth / KG_PER_BAG, finish: kg.finish / KG_PER_BAG };
-        const costs = {
-            start: b.start * (feedPrices.start || 0),
-            growth: b.growth * (feedPrices.growth || 0),
-            finish: b.finish * (feedPrices.finish || 0)
-        };
+        const costs = filteredDeliveries.reduce((acc, d) => {
+            const key = d.feed_type === 'старт' ? 'start' : d.feed_type === 'рост' ? 'growth' : 'finish';
+            acc[key] += Number(d.amount) || 0;
+            return acc;
+        }, { start: 0, growth: 0, finish: 0 });
         const totalKg = kg.start + kg.growth + kg.finish;
         const totalCost = costs.start + costs.growth + costs.finish;
         return { feedTotalsKg: kg, feedTotalsBags: b, totalFeedKg: totalKg, totalFeedBags: totalKg / KG_PER_BAG, feedCosts: costs, totalFeedCost: totalCost };
-    }, [filteredDeliveries, feedPrices]);
+    }, [filteredDeliveries]);
 
 
     // 3. CRUD функции
@@ -100,15 +89,21 @@ function FeedPage() {
         e.preventDefault();
         const bagsNum = Number(bags);
         if (bagsNum <= 0) { alert('Количество мешков должно быть больше нуля.'); return; }
+        const priceNum = Number(pricePerKg);
+        const quantityKg = bagsNum * KG_PER_BAG;
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from('feed_deliveries').insert([{
-            delivery_date: date, feed_type: feedType, quantity_kg: bagsNum * KG_PER_BAG,
-            user_id: user.id, batch_id: selectedBatchId || null
+            delivery_date: date, feed_type: feedType, quantity_kg: quantityKg,
+            user_id: user.id, batch_id: selectedBatchId || null,
+            price_per_kg: priceNum || null,
+            amount: priceNum > 0 ? quantityKg * priceNum : null,
+            transaction_type: priceNum > 0 ? transactionType : null,
+            company: company || null
         }]);
         if (error) { alert(error.message); }
         else {
-            setBags(''); setSelectedBatchId('');
+            setBags(''); setSelectedBatchId(''); setPricePerKg(''); setCompany('');
             await fetchData();
         }
         setIsSubmitting(false);
@@ -133,51 +128,32 @@ function FeedPage() {
                 </label>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Сводка по корму</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div className="p-3 rounded-lg bg-blue-50">
-                            <p className="text-sm text-blue-600 font-medium">Старт</p>
-                            <p className="font-bold text-xl md:text-2xl text-blue-700">{feedTotalsBags.start.toFixed(1)} меш.</p>
-                            <p className="text-xs text-blue-400">{feedTotalsKg.start} кг</p>
-                            {feedPrices.start > 0 && <p className="text-sm font-semibold text-blue-800 mt-1">{formatCurrency(feedCosts.start)}</p>}
-                        </div>
-                        <div className="p-3 rounded-lg bg-green-50">
-                            <p className="text-sm text-green-600 font-medium">Рост</p>
-                            <p className="font-bold text-xl md:text-2xl text-green-700">{feedTotalsBags.growth.toFixed(1)} меш.</p>
-                            <p className="text-xs text-green-400">{feedTotalsKg.growth} кг</p>
-                            {feedPrices.growth > 0 && <p className="text-sm font-semibold text-green-800 mt-1">{formatCurrency(feedCosts.growth)}</p>}
-                        </div>
-                        <div className="p-3 rounded-lg bg-yellow-50">
-                            <p className="text-sm text-yellow-600 font-medium">Финиш</p>
-                            <p className="font-bold text-xl md:text-2xl text-yellow-700">{feedTotalsBags.finish.toFixed(1)} меш.</p>
-                            <p className="text-xs text-yellow-400">{feedTotalsKg.finish} кг</p>
-                            {feedPrices.finish > 0 && <p className="text-sm font-semibold text-yellow-800 mt-1">{formatCurrency(feedCosts.finish)}</p>}
-                        </div>
-                        <div className="p-3 rounded-lg bg-gray-100">
-                            <p className="text-sm font-semibold text-gray-700">Всего</p>
-                            <p className="font-bold text-xl md:text-2xl text-gray-900">{totalFeedBags.toFixed(1)} меш.</p>
-                            <p className="text-xs text-gray-500">{totalFeedKg} кг</p>
-                            {totalFeedCost > 0 && <p className="text-sm font-bold text-gray-900 mt-1">{formatCurrency(totalFeedCost)}</p>}
-                        </div>
+            <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700">Сводка по корму</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div className="p-3 rounded-lg bg-blue-50">
+                        <p className="text-sm text-blue-600 font-medium">Старт</p>
+                        <p className="font-bold text-xl md:text-2xl text-blue-700">{feedTotalsBags.start.toFixed(1)} меш.</p>
+                        <p className="text-xs text-blue-400">{feedTotalsKg.start} кг</p>
+                        {feedCosts.start > 0 && <p className="text-sm font-semibold text-blue-800 mt-1">{formatCurrency(feedCosts.start)}</p>}
                     </div>
-                </div>
-                <div className="w-full md:w-1/3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <h2 className="text-lg font-semibold mb-3 text-gray-700">Цены (за мешок)</h2>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-600">Старт</label>
-                            <input type="number" value={feedPrices.start || ''} onChange={e => handlePriceChange('start', e.target.value)} className="w-24 p-1 border rounded text-right bg-white" placeholder="0" />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-600">Рост</label>
-                            <input type="number" value={feedPrices.growth || ''} onChange={e => handlePriceChange('growth', e.target.value)} className="w-24 p-1 border rounded text-right bg-white" placeholder="0" />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-600">Финиш</label>
-                            <input type="number" value={feedPrices.finish || ''} onChange={e => handlePriceChange('finish', e.target.value)} className="w-24 p-1 border rounded text-right bg-white" placeholder="0" />
-                        </div>
+                    <div className="p-3 rounded-lg bg-green-50">
+                        <p className="text-sm text-green-600 font-medium">Рост</p>
+                        <p className="font-bold text-xl md:text-2xl text-green-700">{feedTotalsBags.growth.toFixed(1)} меш.</p>
+                        <p className="text-xs text-green-400">{feedTotalsKg.growth} кг</p>
+                        {feedCosts.growth > 0 && <p className="text-sm font-semibold text-green-800 mt-1">{formatCurrency(feedCosts.growth)}</p>}
+                    </div>
+                    <div className="p-3 rounded-lg bg-yellow-50">
+                        <p className="text-sm text-yellow-600 font-medium">Финиш</p>
+                        <p className="font-bold text-xl md:text-2xl text-yellow-700">{feedTotalsBags.finish.toFixed(1)} меш.</p>
+                        <p className="text-xs text-yellow-400">{feedTotalsKg.finish} кг</p>
+                        {feedCosts.finish > 0 && <p className="text-sm font-semibold text-yellow-800 mt-1">{formatCurrency(feedCosts.finish)}</p>}
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-100">
+                        <p className="text-sm font-semibold text-gray-700">Всего</p>
+                        <p className="font-bold text-xl md:text-2xl text-gray-900">{totalFeedBags.toFixed(1)} меш.</p>
+                        <p className="text-xs text-gray-500">{totalFeedKg} кг</p>
+                        {totalFeedCost > 0 && <p className="text-sm font-bold text-gray-900 mt-1">{formatCurrency(totalFeedCost)}</p>}
                     </div>
                 </div>
             </div>
@@ -185,7 +161,7 @@ function FeedPage() {
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Добавить приход корма</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-8 gap-4 items-end">
                         <div><label className="block text-sm font-medium">Дата прихода</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="mt-1 w-full p-2 border rounded-md"/></div>
                         <div><label className="block text-sm font-medium">Тип корма</label><select value={feedType} onChange={e => setFeedType(e.target.value)} required className="mt-1 w-full p-2 border rounded-md bg-white"><option value="старт">Старт</option><option value="рост">Рост</option><option value="финиш">Финиш</option></select></div>
                         <div>
@@ -198,6 +174,9 @@ function FeedPage() {
                                 {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
                             </select>
                         </div>
+                        <div><label className="block text-sm font-medium">Цена за кг</label><input type="number" step="0.01" placeholder="5.00" value={pricePerKg} onChange={e => setPricePerKg(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
+                        <div><label className="block text-sm font-medium">Тип оплаты</label><select value={transactionType} onChange={e => setTransactionType(e.target.value)} className="mt-1 w-full p-2 border rounded-md bg-white"><option value="purchase">Сразу</option><option value="debt">В долг</option></select></div>
+                        <div><label className="block text-sm font-medium">Фирма</label><input type="text" placeholder="(необязательно)" value={company} onChange={e => setCompany(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
                         <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 disabled:bg-gray-400">{isSubmitting ? 'Добавление...' : 'Добавить'}</button>
                     </div>
                     {bags && (
@@ -239,12 +218,7 @@ function FeedPage() {
                                         <td className="px-6 py-4 font-semibold">{(d.quantity_kg / KG_PER_BAG).toFixed(1)} меш.</td>
                                         <td className="px-6 py-4 text-gray-500">{d.quantity_kg} кг</td>
                                         <td className="px-6 py-4 font-medium text-gray-800">
-                                            {(() => {
-                                                const typeKey = d.feed_type === 'старт' ? 'start' : d.feed_type === 'рост' ? 'growth' : 'finish';
-                                                const price = feedPrices[typeKey] || 0;
-                                                const cost = (d.quantity_kg / KG_PER_BAG) * price;
-                                                return cost > 0 ? formatCurrency(cost) : '–';
-                                            })()}
+                                            {d.amount > 0 ? formatCurrency(d.amount) : '–'}
                                         </td>
                                         <td className="px-6 py-4">{d.batch_name ? <span className={`text-xs rounded-full px-2 py-1 ${d.batch_is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>{d.batch_name}</span> : '–'}</td>
                                         <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleEditClick(d)} className="font-medium text-blue-600 hover:underline px-2 py-2">Редактировать</button><button onClick={() => handleDelete(d.id)} className="font-medium text-red-600 hover:underline px-2 py-2">Удалить</button></td>
