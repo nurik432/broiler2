@@ -228,7 +228,11 @@ function SalesPage() {
                     <tbody>
                         {loading ? ( <tr><td colSpan="7" className="text-center py-4">Загрузка...</td></tr> ) :
                         filteredSales.map(sale => (
-                            <tr key={sale.id} className="border-b">
+                            <tr
+                                key={sale.id}
+                                className={editingSaleId === sale.id ? "border-b" : "border-b cursor-pointer hover:bg-gray-50"}
+                                onClick={editingSaleId === sale.id ? undefined : () => openPaymentsModal(sale)}
+                            >
                                 {editingSaleId === sale.id ? (
                                     <>
                                         <td className="p-2"><input type="date" value={editSaleFormData.sale_date} onChange={e => setEditSaleFormData({...editSaleFormData, sale_date: e.target.value})} className="p-1 border rounded w-full"/></td>
@@ -259,9 +263,8 @@ function SalesPage() {
                                         <td className="px-6 py-4 font-semibold text-green-600">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(sale.total_paid)}</td>
                                         <td className="px-6 py-4">{sale.balance <= 0 ? (<span className="px-3 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Выплачено</span>) : (<span className="px-3 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Остаток: {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(sale.balance)}</span>)}</td>
                                         <td className="px-6 py-4 text-right flex flex-col sm:flex-row gap-2 sm:gap-4 justify-end">
-                                            <button onClick={() => openPaymentsModal(sale)} className="font-medium text-blue-600 hover:underline">Платежи</button>
-                                            <button onClick={() => handleEditSaleClick(sale)} className="font-medium text-yellow-600 hover:underline">Изменить</button>
-                                            <button onClick={() => handleDeleteSale(sale.id)} className="font-medium text-red-600 hover:underline">Удалить</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleEditSaleClick(sale); }} className="font-medium text-yellow-600 hover:underline">Изменить</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }} className="font-medium text-red-600 hover:underline">Удалить</button>
                                         </td>
                                     </>
                                 )}
