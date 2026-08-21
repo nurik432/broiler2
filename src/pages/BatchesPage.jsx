@@ -366,7 +366,11 @@ const { error: employeesError } = await supabase
                                             Журнал
                                         </Link>
                                         {view === 'active' ? (
-                                            !batch.is_summary && (
+                                            batch.is_summary ? (
+                                                <Link to={`/batch/${batch.id}/report`} className="px-4 py-2 text-sm text-center font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600">
+                                                    Отчет
+                                                </Link>
+                                            ) : (
                                                 <button
                                                     onClick={() => handleToggleBatchStatus(batch.id, false)}
                                                     className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"
