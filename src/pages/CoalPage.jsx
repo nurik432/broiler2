@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient';
 function CoalPage() {
     // --- Данные ---
     const [transactions, setTransactions] = useState([]);
+    const [activeBatches, setActiveBatches] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // --- Вкладки: purchase / debt / payment ---
@@ -19,6 +20,7 @@ function CoalPage() {
     const [quantity, setQuantity] = useState('');
     const [price, setPrice] = useState('');
     const [description, setDescription] = useState('');
+    const [selectedBatchId, setSelectedBatchId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // --- Форма платежа ---
@@ -29,13 +31,19 @@ function CoalPage() {
     // --- Загрузка данных ---
     const fetchData = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('coal_transactions').select('*')
-            .order('transaction_date', { ascending: false })
-            .order('created_at', { ascending: false });
+        const [transRes, batchesRes] = await Promise.all([
+            supabase
+                .from('coal_transactions').select('*')
+                .order('transaction_date', { ascending: false })
+                .order('created_at', { ascending: false }),
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
+        ]);
 
-        if (error) console.error('Ошибка транзакций:', error);
-        else setTransactions(data);
+        if (transRes.error) console.error('Ошибка транзакций:', transRes.error);
+        else setTransactions(transRes.data);
+
+        if (batchesRes.error) console.error('Ошибка партий:', batchesRes.error);
+        else setActiveBatches(batchesRes.data);
 
         setLoading(false);
     };
@@ -82,13 +90,14 @@ function CoalPage() {
             price_per_kg: priceVal,
             amount: totalAmount,
             description: description || null,
+            batch_id: selectedBatchId || null,
             user_id: user.id
         }]);
 
         if (error) {
             alert('Ошибка: ' + error.message);
         } else {
-            setQuantity(''); setPrice(''); setDescription('');
+            setQuantity(''); setPrice(''); setDescription(''); setSelectedBatchId('');
             await fetchData();
         }
         setIsSubmitting(false);
@@ -155,7 +164,7 @@ function CoalPage() {
     // Inline helper for rendering purchase/debt form fields
     const renderPurchaseDebtFields = (type) => (
         <form onSubmit={(e) => handleAddTransaction(e, type)} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Дата</label>
                     <input type="date" value={date} onChange={e => setDate(e.target.value)}
@@ -178,6 +187,14 @@ function CoalPage() {
                     <input type="text" placeholder="(необязательно)"
                         value={description} onChange={e => setDescription(e.target.value)}
                         className="mt-1 w-full p-2 border rounded-md" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Партия</label>
+                    <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)}
+                        className="mt-1 w-full p-2 border rounded-md bg-white">
+                        <option value="">-- Не привязывать --</option>
+                        {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
+                    </select>
                 </div>
             </div>
             {quantity && price && (
