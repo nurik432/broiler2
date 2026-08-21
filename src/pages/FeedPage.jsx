@@ -47,7 +47,11 @@ function FeedPage() {
         if (batchesRes.error) {
             console.error("Ошибка:", batchesRes.error);
         } else {
-            setActiveBatches(batchesRes.data);
+            const batches = batchesRes.data || [];
+            setActiveBatches(batches);
+            if (batches.length === 1) {
+                setSelectedBatchId(prev => prev || batches[0].id);
+            }
         }
         setLoading(false);
     };
@@ -103,7 +107,7 @@ function FeedPage() {
         }]);
         if (error) { alert(error.message); }
         else {
-            setBags(''); setSelectedBatchId(''); setPricePerKg(''); setCompany('');
+            setBags(''); setPricePerKg(''); setCompany('');
             await fetchData();
         }
         setIsSubmitting(false);

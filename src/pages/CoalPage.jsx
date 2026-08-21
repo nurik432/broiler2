@@ -43,7 +43,13 @@ function CoalPage() {
         else setTransactions(transRes.data);
 
         if (batchesRes.error) console.error('Ошибка партий:', batchesRes.error);
-        else setActiveBatches(batchesRes.data);
+        else {
+            const batches = batchesRes.data || [];
+            setActiveBatches(batches);
+            if (batches.length === 1) {
+                setSelectedBatchId(prev => prev || batches[0].id);
+            }
+        }
 
         setLoading(false);
     };
@@ -97,7 +103,7 @@ function CoalPage() {
         if (error) {
             alert('Ошибка: ' + error.message);
         } else {
-            setQuantity(''); setPrice(''); setDescription(''); setSelectedBatchId('');
+            setQuantity(''); setPrice(''); setDescription('');
             await fetchData();
         }
         setIsSubmitting(false);

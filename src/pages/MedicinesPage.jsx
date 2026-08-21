@@ -57,7 +57,13 @@ function MedicinesPage() {
         else setMedicines(medsRes.data);
 
         if (batchesRes.error) console.error('Ошибка партий:', batchesRes.error);
-        else setActiveBatches(batchesRes.data);
+        else {
+            const batches = batchesRes.data || [];
+            setActiveBatches(batches);
+            if (batches.length === 1) {
+                setSelectedBatchId(prev => prev || batches[0].id);
+            }
+        }
 
         setLoading(false);
     };
@@ -142,7 +148,7 @@ function MedicinesPage() {
         if (error) {
             alert('Ошибка: ' + error.message);
         } else {
-            setQuantity(''); setPricePerUnit(''); setDescription(''); setMedicineId(''); setCompany(''); setSelectedBatchId('');
+            setQuantity(''); setPricePerUnit(''); setDescription(''); setMedicineId(''); setCompany('');
             await fetchData();
         }
         setIsSubmitting(false);

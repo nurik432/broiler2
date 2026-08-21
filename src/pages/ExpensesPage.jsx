@@ -42,12 +42,18 @@ function ExpensesPage() {
         setLoading(true);
         const [expensesRes, batchesRes] = await Promise.all([
             supabase.rpc('get_expenses'),
-            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true)
+            supabase.from('broiler_batches').select('id, batch_name').eq('is_active', true).or('is_summary.eq.false,is_summary.is.null')
         ]);
         if (expensesRes.error) { console.error('Ошибка:', expensesRes.error); }
         else { setAllExpenses(expensesRes.data); }
         if (batchesRes.error) { console.error("Ошибка:", batchesRes.error); }
-        else { setActiveBatches(batchesRes.data); }
+        else {
+            const batches = batchesRes.data || [];
+            setActiveBatches(batches);
+            if (batches.length === 1) {
+                setSelectedBatchId(prev => prev || batches[0].id);
+            }
+        }
         setLoading(false);
     };
 
@@ -97,7 +103,7 @@ function ExpensesPage() {
         }]);
         if (error) { alert(error.message); }
         else {
-            setDescription(''); setAmount(''); setCategory(''); setSelectedBatchId('');
+            setDescription(''); setAmount(''); setCategory('');
             await fetchData();
         }
         setIsSubmitting(false);
