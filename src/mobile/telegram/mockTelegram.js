@@ -21,7 +21,9 @@ export function installTelegramMock() {
   if (!import.meta.env.DEV) return;
   const params = new URLSearchParams(window.location.search);
   if (params.get('tg_debug') !== '1') return;
-  if (window.Telegram && window.Telegram.WebApp) return;
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if (wa && wa.__mock) return;                                                 // already mocked
+  if (wa && typeof wa.initData === 'string' && wa.initData.length > 0) return; // real Telegram
 
   const dark = params.get('tg_dark') === '1';
   const eventHandlers = {};
