@@ -1,5 +1,5 @@
 // supabase/functions/telegram-auth/verify.test.ts
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { signInitData, verifyInitData } from "./verify.ts";
 
 const BOT_TOKEN = "123456:TEST-abcdefghijklmnopqrstuvwxyz";
