@@ -75,3 +75,7 @@ Tailwind CSS v4 via `@tailwindcss/vite` (config-free, imported with `@import "ta
 ### Excel export
 
 `xlsx` is used for spreadsheet export/import (see `src/pages/BatchesPage.jsx` for the existing pattern) — reuse it rather than adding another spreadsheet library.
+
+### Mobile / Telegram Mini App shell
+
+`src/App.jsx` is a platform switch: outside Telegram it renders `src/DesktopApp.jsx` (the original app, unchanged); inside a Telegram Mini App (`window.Telegram.WebApp.initData` present) it renders `src/mobile/TelegramApp.jsx` — a separate `<Routes>` tree mirroring the desktop paths, under `src/mobile/layouts/TelegramLayout.jsx` (bottom-tab nav). Auth is automatic via Telegram `initData`, verified by the `supabase/functions/telegram-auth` Edge Function against `telegram_links`; first launch asks for web credentials once to create the link. Mobile screens live in `src/mobile/pages/` and reuse `src/hooks`, `src/utils`, `src/constants` unchanged. Not-yet-ported routes render `<MobileStub>`. See `docs/telegram-mini-app.md`. Dev without Telegram: `?tg_debug=1`.
