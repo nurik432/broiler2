@@ -38,6 +38,13 @@ Deno.test("rejects a stale auth_date", async () => {
   assertEquals(res, { ok: false, reason: "stale" });
 });
 
+Deno.test("rejects an auth_date far in the future", async () => {
+  const future = Math.floor(Date.now() / 1000) + 90_000; // well beyond the 300s skew
+  const initData = await signInitData(baseParams(future), BOT_TOKEN);
+  const res = await verifyInitData(initData, BOT_TOKEN);
+  assertEquals(res, { ok: false, reason: "stale" });
+});
+
 Deno.test("rejects wrong bot token", async () => {
   const now = Math.floor(Date.now() / 1000);
   const initData = await signInitData(baseParams(now), BOT_TOKEN);

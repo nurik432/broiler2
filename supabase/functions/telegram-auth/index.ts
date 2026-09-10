@@ -23,7 +23,10 @@ Deno.serve(async (req) => {
     return json({ error: "bad_body" }, 400);
   }
   const { action, initData } = body;
-  if (!initData || (action !== "login" && action !== "link")) {
+  if (
+    !initData ||
+    (action !== "login" && action !== "link" && action !== "unlink")
+  ) {
     return json({ error: "bad_request" }, 400);
   }
 
@@ -54,7 +57,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // action === "link": caller already signed in with email/password.
+  // action === "link" | "unlink": caller already signed in with email/password.
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
   if (!jwt) return json({ error: "missing_token" }, 401);
@@ -62,6 +65,15 @@ Deno.serve(async (req) => {
   const { data: userRes, error: userErr } = await admin.auth.getUser(jwt);
   if (userErr || !userRes?.user) return json({ error: "bad_token" }, 401);
   const user = userRes.user;
+
+  if (action === "unlink") {
+    const { error: delErr } = await admin
+      .from("telegram_links")
+      .delete()
+      .eq("tg_id", tgId);
+    if (delErr) return json({ error: "db_error" }, 500);
+    return json({ ok: true });
+  }
 
   const { error: upsertErr } = await admin.from("telegram_links").upsert(
     {
@@ -73,6 +85,11 @@ Deno.serve(async (req) => {
     },
     { onConflict: "tg_id" },
   );
-  if (upsertErr) return json({ error: "db_error" }, 500);
+  if (upsertErr) {
+    if (upsertErr.code === "23505") {
+      return json({ error: "account_already_linked" }, 409);
+    }
+    return json({ error: "db_error" }, 500);
+  }
   return json({ ok: true });
 });

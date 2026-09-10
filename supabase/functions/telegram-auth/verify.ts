@@ -62,7 +62,12 @@ export async function verifyInitData(
 
   const authDate = Number(authDateRaw);
   if (!Number.isFinite(authDate)) return { ok: false, reason: "bad_format" };
-  if (Math.floor(Date.now() / 1000) - authDate > maxAgeSeconds) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (nowSeconds - authDate > maxAgeSeconds) {
+    return { ok: false, reason: "stale" };
+  }
+  // Reject clocks skewed too far into the future too.
+  if (authDate - nowSeconds > 300) {
     return { ok: false, reason: "stale" };
   }
 

@@ -11,7 +11,10 @@ async function callFn(payload, accessToken) {
     headers: {
       'Content-Type': 'application/json',
       apikey: ANON,
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      // Always present: the Supabase gateway rejects the request before the
+      // function body runs otherwise. `link`/`unlink` pass the user access
+      // token; `login` falls back to the anon key.
+      Authorization: `Bearer ${accessToken || ANON}`,
     },
     body: JSON.stringify(payload),
   });
@@ -63,6 +66,9 @@ export async function telegramLink(email, password) {
       { action: 'link', initData: getInitDataRaw() },
       accessToken,
     );
+    if (status === 409 || res.error === 'account_already_linked') {
+      return { ok: false, message: 'Этот аккаунт уже привязан к другому Telegram' };
+    }
     if (status !== 200 || !res.ok) {
       return { ok: false, message: res.error || `HTTP ${status}` };
     }
@@ -70,4 +76,26 @@ export async function telegramLink(email, password) {
   } catch (e) {
     return { ok: false, message: e.message };
   }
+}
+
+export async function telegramUnlink() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+
+  if (isDevMock()) return { ok: true };
+
+  let ok = false;
+  try {
+    const { status, data: res } = await callFn(
+      { action: 'unlink', initData: getInitDataRaw() },
+      accessToken,
+    );
+    ok = status === 200 && !!res.ok;
+  } catch {
+    ok = false;
+  }
+
+  // Regardless of the server result, drop the local session.
+  await supabase.auth.signOut();
+  return { ok };
 }

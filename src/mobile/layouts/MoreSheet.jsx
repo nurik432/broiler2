@@ -1,6 +1,6 @@
 // src/mobile/layouts/MoreSheet.jsx
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { telegramUnlink } from '../telegram/auth';
 import BottomSheet from '../components/BottomSheet';
 
 const GROUPS = [
@@ -41,7 +41,7 @@ export default function MoreSheet({ open, onClose }) {
           </div>
         ))}
         <button
-          onClick={async () => { await supabase.auth.signOut(); onClose(); window.location.reload(); }}
+          onClick={async () => { await telegramUnlink(); onClose(); window.location.reload(); }}
           className="mt-2 w-full rounded-xl px-4 py-3 text-base font-semibold text-tg-destructive bg-tg-section"
           style={{ minHeight: 48 }}
         >

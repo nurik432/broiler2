@@ -21,6 +21,14 @@ The two "Broiler app" projects were INACTIVE at authoring time — restore the o
    ```bash
    npx supabase functions deploy telegram-auth --project-ref <ref>
    ```
+   `supabase/config.toml` carries `[functions.telegram-auth] verify_jwt = false`,
+   which `supabase functions deploy` reads — so the function deploys with the
+   gateway's JWT check **off**. This is required: the function does its own auth
+   (HMAC over the Telegram `initData`, plus `admin.auth.getUser(jwt)` for
+   `link`/`unlink`), and the anon `login` path carries only the anon key, which
+   the gateway would otherwise 401 before the function body runs. If deploying
+   from an older CLI that ignores `config.toml`, pass `--no-verify-jwt`
+   explicitly.
 
 3. Set secrets:
    ```bash

@@ -27,7 +27,7 @@ export default function MobileDailyEntryPage() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const haptics = useTelegramHaptics();
-  const logDate = today();
+  const [logDate] = useState(today); // stable for the mount — avoids a midnight date/id mismatch
 
   async function load() {
     setLoading(true);
@@ -66,7 +66,8 @@ export default function MobileDailyEntryPage() {
     const mh = Number(entry.mortality_halal) || 0;
     const feed = Number(entry.feed) || 0;
     const water = Number(entry.water) || 0;
-    const weight = entry.weight ? parseFloat(entry.weight) : null;
+    const wParsed = parseFloat(entry.weight);
+    const weight = Number.isFinite(wParsed) ? wParsed : null;
     if (mn === 0 && mh === 0 && feed === 0 && water === 0 && weight === null) {
       setSaved(false);
       window.alert('Введите хотя бы одно значение');
