@@ -1,2 +1,14 @@
 /* src/index.css */
 @import "tailwindcss";
+
+@theme {
+  --color-tg-bg: var(--tg-bg, #ffffff);
+  --color-tg-text: var(--tg-text, #000000);
+  --color-tg-hint: var(--tg-hint, #707579);
+  --color-tg-link: var(--tg-link, #2481cc);
+  --color-tg-button: var(--tg-button, #2481cc);
+  --color-tg-button-text: var(--tg-button-text, #ffffff);
+  --color-tg-secondary: var(--tg-secondary-bg, #efeff4);
+  --color-tg-section: var(--tg-section-bg, #ffffff);
+  --color-tg-destructive: var(--tg-destructive, #df3f40);
+}
