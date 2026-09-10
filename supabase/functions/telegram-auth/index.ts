@@ -1,5 +1,5 @@
 // supabase/functions/telegram-auth/index.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyInitData } from "./verify.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
