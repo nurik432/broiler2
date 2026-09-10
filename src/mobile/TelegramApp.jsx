@@ -10,6 +10,7 @@ import AuthErrorScreen from './screens/AuthErrorScreen';
 import TelegramLayout from './layouts/TelegramLayout';
 import MobileStub from './screens/MobileStub';
 import MobileBatchesPage from './pages/MobileBatchesPage';
+import MobileDailyEntryPage from './pages/MobileDailyEntryPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -44,7 +45,7 @@ function AuthedRoutes() {
     <Routes>
       <Route element={<TelegramLayout />}>
         <Route path="/" element={<MobileBatchesPage />} />
-        <Route path="/daily-entry" element={<MobileStub title="Дневной ввод" />} />
+        <Route path="/daily-entry" element={<MobileDailyEntryPage />} />
         <Route path="/tasks" element={<MobileStub title="Задачи" />} />
         <Route path="/workshops" element={<MobileStub title="Учёт по цехам" />} />
         <Route path="/medicines" element={<MobileStub title="Лекарства" />} />
