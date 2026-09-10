@@ -37,6 +37,7 @@ export async function telegramSignIn() {
       return { status: 'error', message: data.error || `HTTP ${status}` };
     }
     if (data.linked === false) return { status: 'need-link' };
+    if (!data.token_hash) return { status: 'error', message: 'Сервер не вернул token_hash' };
     const { error } = await supabase.auth.verifyOtp({
       token_hash: data.token_hash,
       type: 'magiclink',
@@ -55,12 +56,18 @@ export async function telegramLink(email, password) {
   if (isDevMock()) return { ok: true }; // linked "conceptually" for the dev shell
 
   const accessToken = data.session?.access_token;
-  const { status, data: res } = await callFn(
-    { action: 'link', initData: getInitDataRaw() },
-    accessToken,
-  );
-  if (status !== 200 || !res.ok) {
-    return { ok: false, message: res.error || `HTTP ${status}` };
+  if (!accessToken) return { ok: false, message: 'Не удалось получить сессию' };
+
+  try {
+    const { status, data: res } = await callFn(
+      { action: 'link', initData: getInitDataRaw() },
+      accessToken,
+    );
+    if (status !== 200 || !res.ok) {
+      return { ok: false, message: res.error || `HTTP ${status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e.message };
   }
-  return { ok: true };
 }

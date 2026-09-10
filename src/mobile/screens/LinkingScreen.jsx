@@ -12,10 +12,15 @@ export default function LinkingScreen({ onLinked }) {
     e.preventDefault();
     setBusy(true);
     setErr('');
-    const { ok, message } = await telegramLink(email.trim(), password);
-    setBusy(false);
-    if (ok) onLinked();
-    else setErr(message || 'Не удалось войти');
+    try {
+      const { ok, message } = await telegramLink(email.trim(), password);
+      if (ok) onLinked();
+      else setErr(message || 'Не удалось войти');
+    } catch (e) {
+      setErr(e.message || 'Не удалось войти');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
