@@ -1,0 +1,27 @@
+// src/mobile/telegram/useTelegramBackButton.js
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getWebApp } from './context';
+
+const ROOTS = new Set(['/', '/daily-entry', '/tasks']);
+
+export function useTelegramBackButton() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const bb = getWebApp()?.BackButton;
+    if (!bb) return;
+    const onClick = () => navigate(-1);
+    if (ROOTS.has(location.pathname)) {
+      bb.hide?.();
+    } else {
+      bb.onClick?.(onClick);
+      bb.show?.();
+    }
+    return () => {
+      bb.offClick?.(onClick);
+      bb.hide?.();
+    };
+  }, [location.pathname, navigate]);
+}
