@@ -9,6 +9,7 @@ import LinkingScreen from './screens/LinkingScreen';
 import AuthErrorScreen from './screens/AuthErrorScreen';
 import TelegramLayout from './layouts/TelegramLayout';
 import MobileStub from './screens/MobileStub';
+import MobileBatchesPage from './pages/MobileBatchesPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -42,7 +43,7 @@ function AuthedRoutes() {
   return (
     <Routes>
       <Route element={<TelegramLayout />}>
-        <Route path="/" element={<MobileStub title="Партии бройлеров" />} />
+        <Route path="/" element={<MobileBatchesPage />} />
         <Route path="/daily-entry" element={<MobileStub title="Дневной ввод" />} />
         <Route path="/tasks" element={<MobileStub title="Задачи" />} />
         <Route path="/workshops" element={<MobileStub title="Учёт по цехам" />} />
