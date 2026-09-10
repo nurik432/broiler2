@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code PostToolUse hook artifact (machine-local, not project history)
+CHANGELOG.md
