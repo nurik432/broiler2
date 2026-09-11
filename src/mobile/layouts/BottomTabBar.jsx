@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom';
 const TABS = [
   ['/', 'Партии', '🐔'],
   ['/daily-entry', 'Ввод', '📝'],
-  ['/tasks', 'Задачи', '✅'],
+  ['/expenses', 'Расходы', '💸'],
 ];
 
 export default function BottomTabBar({ onMore }) {

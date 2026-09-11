@@ -5,11 +5,11 @@ import BottomSheet from '../components/BottomSheet';
 
 const GROUPS = [
   { title: 'Финансы', items: [
-    ['/expenses', 'Расходы'], ['/sales', 'Продажи'],
+    ['/sales', 'Продажи'],
     ['/salaries', 'Сотрудники и ЗП'], ['/debts', 'Долги'],
   ] },
   { title: 'Учёт', items: [
-    ['/workshops', 'Учёт по цехам'], ['/feed', 'Корм'], ['/coal', 'Уголь'], ['/gas', 'Газ'],
+    ['/tasks', 'Задачи'], ['/workshops', 'Учёт по цехам'], ['/feed', 'Корм'], ['/coal', 'Уголь'], ['/gas', 'Газ'],
   ] },
   { title: 'Справочники', items: [
     ['/medicines', 'Лекарства'], ['/notes', 'Заметки'],
