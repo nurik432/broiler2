@@ -125,6 +125,8 @@ export default function MobileExpensesPage() {
   });
 
   async function confirmDelete() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('expenses').delete().eq('id', confirmDeleteId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteId(null);
