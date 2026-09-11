@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
-import { forecastGasBalance } from '../utils/gasForecast';
+import { forecastGasBalance, projectedZeroBalanceReading } from '../utils/gasForecast';
 
 function GasPage() {
     // --- Данные ---
@@ -93,6 +93,13 @@ function GasPage() {
 
     const forecast = useMemo(() =>
         forecastGasBalance(filteredReadings, summary.currentBalance), [filteredReadings, summary.currentBalance]);
+
+    const zeroBalancePoint = useMemo(() =>
+        projectedZeroBalanceReading(
+            previousReading ? previousReading.reading_value : null,
+            summary.currentBalance,
+            currentPrice ? Number(currentPrice.price) : null
+        ), [previousReading, summary.currentBalance, currentPrice]);
 
     // --- Предпросмотр расхода для новой записи показания ---
     const readingPreview = useMemo(() => {
@@ -233,7 +240,7 @@ function GasPage() {
             {/* === ДАШБОРД === */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Баланс и прогноз</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                     <div className={`p-4 rounded-lg ${balanceColorClasses.bg}`}>
                         <p className={`text-sm font-medium ${balanceColorClasses.text}`}>Текущий баланс</p>
                         <p className={`font-bold text-xl md:text-2xl ${balanceColorClasses.value}`}>{formatCurrency(summary.currentBalance)}</p>
@@ -263,10 +270,26 @@ function GasPage() {
                             </p>
                         )}
                     </div>
+                    <div className="p-4 rounded-lg bg-orange-50">
+                        <p className="text-sm text-orange-600 font-medium">Баланс обнулится при</p>
+                        <p className="font-bold text-xl md:text-2xl text-orange-700">
+                            {zeroBalancePoint ? `${zeroBalancePoint.projectedReading} м³` : '—'}
+                        </p>
+                        {zeroBalancePoint && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                ещё {zeroBalancePoint.m3Remaining} м³
+                            </p>
+                        )}
+                    </div>
                 </div>
-                {readings.length < 2 && (
+                {readings.length === 0 && (
                     <p className="text-sm text-gray-400 mt-4">
-                        Прогноз появится после второго показания счётчика — нужна хотя бы одна пара точек, чтобы посчитать расход.
+                        Внесите первое показание счётчика и цену газа, чтобы увидеть прогноз.
+                    </p>
+                )}
+                {readings.length === 1 && (
+                    <p className="text-sm text-gray-400 mt-4">
+                        «Хватит на N дней» появится после второго показания — нужна пара точек, чтобы посчитать скорость расхода. «Баланс обнулится при» уже доступен по последнему показанию и текущей цене.
                     </p>
                 )}
             </div>

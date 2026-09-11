@@ -39,3 +39,22 @@ export function forecastGasBalance(readings, currentBalance) {
     projectedEmptyDate
   };
 }
+
+/**
+ * Показание счётчика, при котором текущий баланс обнулится, по действующей
+ * цене за м³ — не зависит от истории расхода, только от последнего
+ * показания, баланса и цены (баланс / цена = остаток м³).
+ * @param {number|null} lastReadingValue
+ * @param {number} currentBalance
+ * @param {number|null} pricePerM3
+ * @returns {{ m3Remaining: number, projectedReading: number } | null}
+ */
+export function projectedZeroBalanceReading(lastReadingValue, currentBalance, pricePerM3) {
+  if (lastReadingValue == null || !pricePerM3 || pricePerM3 <= 0) return null;
+  const m3Remaining = Math.max(0, currentBalance / pricePerM3);
+  const projectedReading = lastReadingValue + m3Remaining;
+  return {
+    m3Remaining: Math.round(m3Remaining * 100) / 100,
+    projectedReading: Math.round(projectedReading * 100) / 100
+  };
+}
