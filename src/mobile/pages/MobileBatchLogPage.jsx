@@ -11,6 +11,7 @@ import Tabs from '../components/Tabs';
 import WeightChart from '../components/WeightChart';
 import EmptyState from '../components/EmptyState';
 import Spinner from '../components/Spinner';
+import MobileJournalTab from './batchLog/MobileJournalTab';
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(v || 0);
@@ -177,19 +178,7 @@ export default function MobileBatchLogPage() {
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'journal' && (
-        logs.length === 0 ? <EmptyState icon="📭" title="Записей журнала пока нет" /> : logs.map((log) => (
-          <Card key={log.id}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-semibold">{new Date(log.log_date).toLocaleDateString('ru-RU')}</span>
-              <span className="text-xs text-tg-hint">День {log.age}</span>
-            </div>
-            <ListRow label="Падёж (ест/хал)" value={`${log.mortality} (${log.mortality_natural || 0}/${log.mortality_halal || 0})`} />
-            <ListRow label="Масса" value={log.weight ?? '—'} />
-            <ListRow label="Вода" value={log.water_consumption ?? '—'} />
-            <ListRow label="Корм" value={log.daily_feed ?? '—'} />
-            <ListRow label="Лекарство" value={log.medicine?.name || '—'} />
-          </Card>
-        ))
+        <MobileJournalTab batch={batch} logs={logs} medicines={medicines} onReload={fetchAll} />
       )}
       {tab === 'expenses' && (
         expenses.length === 0 ? <EmptyState icon="📭" title="Расходов нет" /> : expenses.map((e) => (
