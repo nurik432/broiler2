@@ -11,6 +11,7 @@ import TelegramLayout from './layouts/TelegramLayout';
 import MobileStub from './screens/MobileStub';
 import MobileBatchesPage from './pages/MobileBatchesPage';
 import MobileDailyEntryPage from './pages/MobileDailyEntryPage';
+import MobileBatchReportPage from './pages/MobileBatchReportPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -57,7 +58,7 @@ function AuthedRoutes() {
         <Route path="/feed" element={<MobileStub title="Корм" />} />
         <Route path="/coal" element={<MobileStub title="Уголь" />} />
         <Route path="/batch/:batchId" element={<MobileStub title="Партия" />} />
-        <Route path="/batch/:batchId/report" element={<MobileStub title="Отчёт партии" />} />
+        <Route path="/batch/:batchId/report" element={<MobileBatchReportPage />} />
         <Route path="*" element={<MobileStub title="Раздел" />} />
       </Route>
     </Routes>
