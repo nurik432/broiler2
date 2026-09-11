@@ -419,3 +419,9 @@ enabled = true
 # `login` path before the function body runs.
 [functions.telegram-auth]
 verify_jwt = false
+
+# Triggered only by the pg_cron + pg_net job in
+# 20260911200100_schedule_daily_log_reminder.sql, which has no user JWT to
+# present — the function checks an x-cron-secret header itself instead.
+[functions.daily-log-reminder]
+verify_jwt = false

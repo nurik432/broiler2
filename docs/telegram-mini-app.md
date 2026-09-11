@@ -49,7 +49,59 @@ Run each in the real bot:
 5. **Theme toggle** → Telegram light/dark → theme follows in mini app.
 6. **Navigation buttons** → BackButton on `/batch/:id`; MainButton "Сохранить" on "Ввод".
 
-## 4. Local dev without Telegram
+## 4. Daily-log reminder (optional)
+
+Sends a Telegram message to a farm's owner if any of their active workshops
+(with an active batch) has no `daily_logs` entry for "yesterday" — runs once
+a day via `pg_cron` + `pg_net` calling the `daily-log-reminder` Edge
+Function. Skip this section if you don't want the reminder.
+
+1. Apply the two new migrations (RPC + cron schedule) the same way as step 2
+   above (`supabase db push`, or run them via the SQL editor):
+   `20260911200000_create_get_workshops_missing_log.sql` and
+   `20260911200100_schedule_daily_log_reminder.sql`.
+
+2. Deploy the function and set its secret:
+   ```bash
+   npx supabase functions deploy daily-log-reminder --project-ref <ref>
+   npx supabase secrets set CRON_SECRET=<a-random-string> --project-ref <ref>
+   ```
+   `verify_jwt = false` is already set in `supabase/config.toml` — the
+   function checks the `x-cron-secret` header itself instead, since the cron
+   job has no user session to present.
+
+3. In the SQL editor, store the three secrets the cron job reads at every run
+   (Vault, not plaintext in the migration, since the project URL/keys aren't
+   known at migration-authoring time):
+   ```sql
+   select vault.create_secret('https://<ref>.supabase.co', 'project_url');
+   select vault.create_secret('<anon-key-from-Settings-API>', 'anon_key');
+   select vault.create_secret('<the-same-random-string-as-CRON_SECRET>', 'cron_secret');
+   ```
+
+4. Verify: `select * from cron.job;` shows the `daily-log-reminder` job;
+   `select * from cron.job_run_details order by start_time desc limit 5;`
+   shows run history after it's fired once. To trigger it manually for
+   testing without waiting for the schedule:
+   ```bash
+   curl -X POST https://<ref>.supabase.co/functions/v1/daily-log-reminder \
+     -H "apikey: <anon-key>" -H "x-cron-secret: <the-random-string>"
+   ```
+
+**Notes:**
+- The schedule (`0 4 * * *`, i.e. 04:00 UTC) and the "yesterday" calculation
+  both assume Asia/Dushanbe (UTC+5, no DST) — see `TZ_OFFSET_HOURS` in
+  `supabase/functions/daily-log-reminder/index.ts`. Change both together if
+  the farm is elsewhere.
+- To change the schedule later: `select cron.alter_job(job_id, schedule =>
+  '<new cron expression>')` (find `job_id` via `select * from cron.job;`), or
+  `select cron.unschedule('daily-log-reminder');` then re-run the
+  `cron.schedule(...)` block from the migration with a new expression.
+- A workshop only gets reminded about the specific missed date once — the
+  job always checks yesterday relative to when it runs, so it never repeats
+  a reminder for the same day twice.
+
+## 5. Local dev without Telegram
 
 `npm run dev` then open `http://localhost:5173/?tg_debug=1`
 
