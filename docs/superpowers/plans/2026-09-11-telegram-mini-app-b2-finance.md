@@ -333,6 +333,8 @@ export default function MobileExpensesPage() {
   });
 
   async function confirmDelete() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('expenses').delete().eq('id', confirmDeleteId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteId(null);
@@ -660,6 +662,8 @@ export default function MobileSalesPage() {
   }
 
   async function confirmDelete() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('sales').delete().eq('id', confirmDeleteId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteId(null);
@@ -674,6 +678,8 @@ export default function MobileSalesPage() {
   }
 
   async function deletePayment(paymentId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('payments').delete().eq('id', paymentId);
     if (error) { window.alert('Ошибка: ' + error.message); return; }
     await fetchData();
@@ -1112,12 +1118,16 @@ export default function MobileDebtsPage() {
   }
 
   async function toggleSettled(debt) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('debts').update({ is_settled: !debt.is_settled }).eq('id', debt.id);
     if (error) window.alert('Ошибка: ' + error.message);
     await fetchDebts();
   }
 
   async function confirmDeleteDebt() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('debts').delete().eq('id', confirmDeleteDebtId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteDebtId(null);
@@ -1125,6 +1135,8 @@ export default function MobileDebtsPage() {
   }
 
   async function confirmDeletePayment() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('debt_payments').delete().eq('id', confirmDeletePaymentId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeletePaymentId(null);
@@ -1485,6 +1497,8 @@ export default function MobileFeedPage() {
   });
 
   async function confirmDelete() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('feed_deliveries').delete().eq('id', confirmDeleteId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteId(null);
@@ -1757,12 +1771,16 @@ export default function MobileCoalPage() {
   }
 
   async function toggleHidden(t) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('coal_transactions').update({ is_hidden: !t.is_hidden }).eq('id', t.id);
     if (error) window.alert('Ошибка: ' + error.message);
     await fetchData();
   }
 
   async function confirmDelete() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('coal_transactions').delete().eq('id', confirmDeleteId);
     if (error) window.alert('Ошибка: ' + error.message);
     setConfirmDeleteId(null);
@@ -2209,6 +2227,8 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
     if (!selectedPerson || !recentEmployment) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       if (editForm.name !== selectedPerson.full_name) {
         await supabase.from('persons').update({ full_name: editForm.name }).eq('id', selectedPerson.id);
       }
@@ -2231,6 +2251,8 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
     if (!selectedPerson || !recentEmployment) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error } = await supabase.from('employees').update({ end_date: new Date().toISOString().slice(0, 10), is_active: false }).eq('id', recentEmployment.id);
       if (error) { window.alert('Ошибка: ' + error.message); return; }
       await fetchPersons();
@@ -2317,6 +2339,8 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
     }
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error: reparentError } = await supabase.from('employees')
         .update({ person_id: selectedPerson.id, full_name: selectedPerson.full_name })
         .eq('person_id', mergeTarget.id);
@@ -2341,6 +2365,8 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
     if (!selectedPerson) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error } = await supabase.from('persons').delete().eq('id', selectedPerson.id);
       if (error) { window.alert('Ошибка: ' + error.message); return; }
       await fetchPersons();
@@ -2680,6 +2706,8 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
   }
 
   async function deletePayment(paymentId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
     const { error } = await supabase.from('salaries').delete().eq('id', paymentId);
     if (error) { window.alert('Ошибка: ' + error.message); return; }
     await loadSalaries();
