@@ -11,6 +11,11 @@ import TelegramLayout from './layouts/TelegramLayout';
 import MobileStub from './screens/MobileStub';
 import MobileBatchesPage from './pages/MobileBatchesPage';
 import MobileDailyEntryPage from './pages/MobileDailyEntryPage';
+import MobileBatchReportPage from './pages/MobileBatchReportPage';
+import MobileWorkshopsPage from './pages/MobileWorkshopsPage';
+import MobileWorkshopDetailPage from './pages/workshops/MobileWorkshopDetailPage';
+import MobileTasksPage from './pages/MobileTasksPage';
+import MobileBatchLogPage from './pages/MobileBatchLogPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -46,8 +51,9 @@ function AuthedRoutes() {
       <Route element={<TelegramLayout />}>
         <Route path="/" element={<MobileBatchesPage />} />
         <Route path="/daily-entry" element={<MobileDailyEntryPage />} />
-        <Route path="/tasks" element={<MobileStub title="Задачи" />} />
-        <Route path="/workshops" element={<MobileStub title="Учёт по цехам" />} />
+        <Route path="/tasks" element={<MobileTasksPage />} />
+        <Route path="/workshops" element={<MobileWorkshopsPage />} />
+        <Route path="/workshops/:workshopId" element={<MobileWorkshopDetailPage />} />
         <Route path="/medicines" element={<MobileStub title="Лекарства" />} />
         <Route path="/expenses" element={<MobileStub title="Расходы" />} />
         <Route path="/salaries" element={<MobileStub title="Сотрудники и ЗП" />} />
@@ -56,8 +62,8 @@ function AuthedRoutes() {
         <Route path="/sales" element={<MobileStub title="Продажи" />} />
         <Route path="/feed" element={<MobileStub title="Корм" />} />
         <Route path="/coal" element={<MobileStub title="Уголь" />} />
-        <Route path="/batch/:batchId" element={<MobileStub title="Партия" />} />
-        <Route path="/batch/:batchId/report" element={<MobileStub title="Отчёт партии" />} />
+        <Route path="/batch/:batchId" element={<MobileBatchLogPage />} />
+        <Route path="/batch/:batchId/report" element={<MobileBatchReportPage />} />
         <Route path="*" element={<MobileStub title="Раздел" />} />
       </Route>
     </Routes>
