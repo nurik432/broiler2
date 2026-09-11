@@ -15,6 +15,7 @@ import MobileBatchReportPage from './pages/MobileBatchReportPage';
 import MobileWorkshopsPage from './pages/MobileWorkshopsPage';
 import MobileWorkshopDetailPage from './pages/workshops/MobileWorkshopDetailPage';
 import MobileTasksPage from './pages/MobileTasksPage';
+import MobileBatchLogPage from './pages/MobileBatchLogPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -61,7 +62,7 @@ function AuthedRoutes() {
         <Route path="/sales" element={<MobileStub title="Продажи" />} />
         <Route path="/feed" element={<MobileStub title="Корм" />} />
         <Route path="/coal" element={<MobileStub title="Уголь" />} />
-        <Route path="/batch/:batchId" element={<MobileStub title="Партия" />} />
+        <Route path="/batch/:batchId" element={<MobileBatchLogPage />} />
         <Route path="/batch/:batchId/report" element={<MobileBatchReportPage />} />
         <Route path="*" element={<MobileStub title="Раздел" />} />
       </Route>
