@@ -18,6 +18,7 @@ import MobileTasksPage from './pages/MobileTasksPage';
 import MobileBatchLogPage from './pages/MobileBatchLogPage';
 import MobileExpensesPage from './pages/MobileExpensesPage';
 import MobileSalesPage from './pages/MobileSalesPage';
+import MobileDebtsPage from './pages/MobileDebtsPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -59,7 +60,7 @@ function AuthedRoutes() {
         <Route path="/medicines" element={<MobileStub title="Лекарства" />} />
         <Route path="/expenses" element={<MobileExpensesPage />} />
         <Route path="/salaries" element={<MobileStub title="Сотрудники и ЗП" />} />
-        <Route path="/debts" element={<MobileStub title="Долги" />} />
+        <Route path="/debts" element={<MobileDebtsPage />} />
         <Route path="/notes" element={<MobileStub title="Заметки" />} />
         <Route path="/sales" element={<MobileSalesPage />} />
         <Route path="/feed" element={<MobileStub title="Корм" />} />
