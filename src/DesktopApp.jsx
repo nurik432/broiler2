@@ -21,6 +21,7 @@ import SalesPage from './pages/SalesPage';
 import FeedPage from './pages/FeedPage';
 import BatchReportPage from './pages/BatchReportPage';
 import CoalPage from './pages/CoalPage';
+import GasPage from './pages/GasPage';
 import WorkshopsPage from './pages/WorkshopsPage';
 import TasksPage from './pages/TasksPage';
 import DailyEntryPage from './pages/DailyEntryPage';
@@ -83,6 +84,7 @@ function DesktopApp() {
         <Route path="/feed" element={<FeedPage />} />
         <Route path="/batch/:batchId/report" element={<BatchReportPage />} />
         <Route path="/coal" element={<CoalPage />} />
+        <Route path="/gas" element={<GasPage />} />
         <Route path="/workshops" element={<WorkshopsPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/daily-entry" element={<DailyEntryPage />} />
