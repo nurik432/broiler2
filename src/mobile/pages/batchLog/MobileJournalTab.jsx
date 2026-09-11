@@ -108,11 +108,14 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
 
   async function saveEdit() {
     const l = editRow;
+    const originalLog = logs.find((x) => x.id === l.id);
+    const originalDate = originalLog?.log_date;
     const mn = Number(l.mortality_natural) || 0;
     const mh = Number(l.mortality_halal) || 0;
     setSavingEdit(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error } = await supabase.from('daily_logs').update({
         log_date: l.log_date,
         age: ageOf(batch.start_date, l.log_date),
@@ -125,8 +128,13 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
         medicine_id: l.medicine_id || null,
         dosage: l.dosage || null,
       }).eq('id', l.id);
-      if (error) { window.alert(error.message); return; }
-      if (!batch.is_summary) await syncSummaryBatchLog(l.log_date, user.id);
+      if (error) throw error;
+      if (!batch.is_summary) {
+        await syncSummaryBatchLog(l.log_date, user.id);
+        if (originalDate && originalDate !== l.log_date) {
+          await syncSummaryBatchLog(originalDate, user.id);
+        }
+      }
       setEditRow(null);
       await onReload();
     } catch (e) {
@@ -139,10 +147,11 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
   async function doDelete() {
     const log = logs.find((l) => l.id === deleteId);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error } = await supabase.from('daily_logs').delete().eq('id', deleteId);
-      if (error) { window.alert(error.message); return; }
+      if (error) throw error;
       if (log && !batch.is_summary) {
-        const { data: { user } } = await supabase.auth.getUser();
         await syncSummaryBatchLog(log.log_date, user.id);
       }
       await onReload();

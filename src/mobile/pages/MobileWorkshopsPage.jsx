@@ -55,11 +55,16 @@ export default function MobileWorkshopsPage() {
   async function save() {
     if (!name.trim()) { window.alert('Укажите название цеха'); return; }
     setSaving(true);
-    const payload = { name: name.trim(), capacity, description };
-    const { error } = editing ? await updateWorkshop(editing.id, payload) : await createWorkshop(payload);
-    setSaving(false);
-    if (error) window.alert('Ошибка: ' + error.message);
-    else setFormOpen(false);
+    try {
+      const payload = { name: name.trim(), capacity, description };
+      const { error } = editing ? await updateWorkshop(editing.id, payload) : await createWorkshop(payload);
+      if (error) window.alert('Ошибка: ' + error.message);
+      else setFormOpen(false);
+    } catch (e) {
+      window.alert('Ошибка: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function confirmDelete() {
@@ -108,7 +113,7 @@ export default function MobileWorkshopsPage() {
                   {sd && (
                     <>
                       <ListRow label="День выращивания" value={sd.age} />
-                      <ListRow label="Падёж сегодня" value={sd.mortality} />
+                      <ListRow label="Падёж (посл. запись)" value={sd.mortality} />
                       {sd.weight && sd.norm && <ListRow label="Масса" value={`${sd.weight} г (норма ${sd.norm.weight})`} />}
                       {sd.daily_feed && sd.norm && <ListRow label="Корм" value={`${sd.daily_feed} мешк. (норма ${sd.norm.dailyFeed} г/гол)`} />}
                     </>
