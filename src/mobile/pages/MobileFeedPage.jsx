@@ -92,12 +92,13 @@ export default function MobileFeedPage() {
         price_per_kg: priceNum || null,
         amount: priceNum > 0 ? quantityKg * priceNum : null,
         transaction_type: priceNum > 0 ? form.transaction_type : null,
+        company: form.company || null,
       };
       let error;
       if (editingId) {
         ({ error } = await supabase.from('feed_deliveries').update(payload).eq('id', editingId));
       } else {
-        ({ error } = await supabase.from('feed_deliveries').insert([{ ...payload, user_id: user.id, company: form.company || null }]));
+        ({ error } = await supabase.from('feed_deliveries').insert([{ ...payload, user_id: user.id }]));
       }
       if (error) window.alert('Ошибка: ' + error.message);
       else { setFormOpen(false); await fetchData(); }

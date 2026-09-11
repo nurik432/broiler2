@@ -5,6 +5,7 @@ import { calculateSalary } from '../../../utils/calculateSalary';
 import Card from '../../components/Card';
 import FormField from '../../components/FormField';
 import EmptyState from '../../components/EmptyState';
+import ConfirmSheet from '../../components/ConfirmSheet';
 
 const fieldClass = 'w-full rounded-xl px-3 bg-tg-secondary text-tg-text';
 const formatCurrency = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(v || 0);
@@ -20,6 +21,7 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
   const [editDate, setEditDate] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editType, setEditType] = useState('аванс');
+  const [confirmDeletePaymentId, setConfirmDeletePaymentId] = useState(null);
 
   async function loadSalaries() {
     if (!selectedPerson) { setAllSalaries([]); return; }
@@ -153,10 +155,10 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
   const isEmployeeFired = !recentEmployment || recentEmployment.is_active === false || !!recentEmployment.end_date;
   const remainingToPay = Math.max(currentAccruedData.salary - currentTotals.totalAll, 0);
 
-  function PaymentRow({ p, allowEdit }) {
+  function renderPaymentRow(p, allowEdit) {
     const isEditing = editingPaymentId === p.id;
     return (
-      <div className="flex items-center justify-between gap-2 py-2" style={{ borderBottom: '1px solid var(--tg-secondary-bg)' }}>
+      <div key={p.id} className="flex items-center justify-between gap-2 py-2" style={{ borderBottom: '1px solid var(--tg-secondary-bg)' }}>
         {isEditing ? (
           <div className="flex flex-col gap-2 flex-1">
             <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className={fieldClass} style={{ minHeight: 40 }} />
@@ -183,7 +185,7 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
               {allowEdit && (
                 <>
                   <button type="button" onClick={() => startEditPayment(p)} className="text-xs px-2 py-2" style={{ color: 'var(--tg-link, #4f46e5)' }}>✏️</button>
-                  <button type="button" onClick={() => deletePayment(p.id)} className="text-xs px-2 py-2 text-tg-destructive">🗑</button>
+                  <button type="button" onClick={() => setConfirmDeletePaymentId(p.id)} className="text-xs px-2 py-2 text-tg-destructive">🗑</button>
                 </>
               )}
             </div>
@@ -214,7 +216,7 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
         )}
       </Card>
 
-      <Card style={{ background: 'color-mix(in srgb, var(--tg-link, #4f46e5) 8%, var(--tg-section))' }}>
+      <Card style={{ background: 'color-mix(in srgb, var(--tg-link, #4f46e5) 8%, var(--tg-section-bg))' }}>
         <p className="text-sm font-bold" style={{ color: 'var(--tg-link, #4f46e5)' }}>Начисление за текущий период</p>
         {recentEmployment && (
           <p className="text-xs text-tg-hint mt-1">
@@ -263,7 +265,7 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
 
       <Card>
         <p className="text-sm font-semibold mb-2">Выплаты текущего периода</p>
-        {currentPeriodSalaries.length === 0 ? <p className="text-sm text-tg-hint">Нет выплат</p> : currentPeriodSalaries.map((p) => <PaymentRow key={p.id} p={p} allowEdit />)}
+        {currentPeriodSalaries.length === 0 ? <p className="text-sm text-tg-hint">Нет выплат</p> : currentPeriodSalaries.map((p) => renderPaymentRow(p, true))}
       </Card>
 
       {pastPeriodGroups.length > 0 && (
@@ -280,7 +282,7 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
                   <p className="text-xs text-tg-hint">{group.employee.position || 'Должность не указана'}{group.employee.broiler_batches ? ` · ${group.employee.broiler_batches.batch_name}` : ''}</p>
                   <p className="text-xs text-tg-hint mt-1">Начислено: <strong style={{ color: 'var(--tg-link, #4f46e5)' }}>{formatCurrency(group.accrued.salary)}</strong> · Выплачено: <strong style={{ color: '#28a745' }}>{formatCurrency(group.total)}</strong></p>
                   <div className="mt-2">
-                    {group.salaries.length === 0 ? <p className="text-xs text-tg-hint">Нет выплат</p> : group.salaries.map((p) => <PaymentRow key={p.id} p={p} allowEdit />)}
+                    {group.salaries.length === 0 ? <p className="text-xs text-tg-hint">Нет выплат</p> : group.salaries.map((p) => renderPaymentRow(p, true))}
                   </div>
                 </div>
               ))}
@@ -288,6 +290,13 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
           )}
         </Card>
       )}
+
+      <ConfirmSheet
+        open={!!confirmDeletePaymentId}
+        title="Удалить выплату?"
+        onConfirm={() => deletePayment(confirmDeletePaymentId)}
+        onClose={() => setConfirmDeletePaymentId(null)}
+      />
     </div>
   );
 }

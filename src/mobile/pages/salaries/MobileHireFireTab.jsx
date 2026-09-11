@@ -72,6 +72,7 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
   const [mergeTarget, setMergeTarget] = useState(null);
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmFireOpen, setConfirmFireOpen] = useState(false);
 
   const filteredPersons = useMemo(() => {
     if (!persons) return [];
@@ -116,7 +117,8 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       if (editForm.name !== selectedPerson.full_name) {
-        await supabase.from('persons').update({ full_name: editForm.name }).eq('id', selectedPerson.id);
+        const { error: nameError } = await supabase.from('persons').update({ full_name: editForm.name }).eq('id', selectedPerson.id);
+        if (nameError) window.alert('Ошибка при обновлении имени: ' + nameError.message);
       }
       const { error } = await supabase.from('employees').update({
         full_name: editForm.name, position: editForm.position, start_date: editForm.start_date,
@@ -312,7 +314,7 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
                     {isEmployeeFired ? (
                       <button type="button" onClick={openRehire} className="rounded-xl px-3 py-2 text-xs font-medium text-white" style={{ minHeight: 40, background: '#28a745' }}>🔄 Принять заново</button>
                     ) : (
-                      <button type="button" onClick={fireEmployee} className="rounded-xl px-3 py-2 text-xs font-medium text-white" style={{ minHeight: 40, background: '#fd7e14' }}>📤 Уволить</button>
+                      <button type="button" onClick={() => setConfirmFireOpen(true)} className="rounded-xl px-3 py-2 text-xs font-medium text-white" style={{ minHeight: 40, background: '#fd7e14' }}>📤 Уволить</button>
                     )}
                     <button type="button" onClick={openAddPeriod} className="rounded-xl px-3 py-2 text-xs font-medium text-white" style={{ minHeight: 40, background: '#059669' }}>➕ Добавить период</button>
                     <button type="button" onClick={openMerge} className="rounded-xl px-3 py-2 text-xs font-medium text-white" style={{ minHeight: 40, background: '#9333ea' }}>🔗 Объединить</button>
@@ -425,6 +427,15 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
         message="Будут удалены все периоды работы и история выплат."
         onConfirm={deletePerson}
         onClose={() => setConfirmDeleteOpen(false)}
+      />
+
+      <ConfirmSheet
+        open={confirmFireOpen}
+        title="Уволить сотрудника?"
+        message={selectedPerson ? `${selectedPerson.full_name} будет отмечен уволенным сегодняшним числом.` : undefined}
+        confirmLabel="Уволить"
+        onConfirm={fireEmployee}
+        onClose={() => setConfirmFireOpen(false)}
       />
     </div>
   );

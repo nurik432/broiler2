@@ -135,7 +135,8 @@ export default function MobileDebtsPage() {
       if (debt) {
         const totalPaidNow = getDebtPaid(debt) + Number(payAmount);
         if (totalPaidNow >= Number(debt.amount)) {
-          await supabase.from('debts').update({ is_settled: true }).eq('id', debtId);
+          const { error: settleError } = await supabase.from('debts').update({ is_settled: true }).eq('id', debtId);
+          if (settleError) window.alert('Оплата сохранена, но не удалось автоматически закрыть долг: ' + settleError.message);
         }
       }
       setPayingDebtId(null);
