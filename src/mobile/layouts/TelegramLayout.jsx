@@ -18,6 +18,7 @@ const TITLES = {
   '/sales': 'Продажи',
   '/feed': 'Корм',
   '/coal': 'Уголь',
+  '/gas': 'Газ',
 };
 
 export default function TelegramLayout() {

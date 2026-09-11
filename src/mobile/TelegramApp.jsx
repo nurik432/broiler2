@@ -23,6 +23,7 @@ import MobileSalesPage from './pages/MobileSalesPage';
 import MobileDebtsPage from './pages/MobileDebtsPage';
 import MobileFeedPage from './pages/MobileFeedPage';
 import MobileCoalPage from './pages/MobileCoalPage';
+import MobileGasPage from './pages/MobileGasPage';
 import MobileSalariesPage from './pages/MobileSalariesPage';
 import MobileMedicinesPage from './pages/MobileMedicinesPage';
 import MobileNotesPage from './pages/MobileNotesPage';
@@ -103,6 +104,7 @@ function ClientRoutes() {
         <Route path="/sales" element={<MobileSalesPage />} />
         <Route path="/feed" element={<MobileFeedPage />} />
         <Route path="/coal" element={<MobileCoalPage />} />
+        <Route path="/gas" element={<MobileGasPage />} />
         <Route path="/batch/:batchId" element={<MobileBatchLogPage />} />
         <Route path="/batch/:batchId/report" element={<MobileBatchReportPage />} />
         <Route path="*" element={<MobileStub title="Раздел" />} />
