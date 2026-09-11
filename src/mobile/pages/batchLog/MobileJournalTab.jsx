@@ -49,6 +49,7 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
   const [submitting, setSubmitting] = useState(false);
   const [confirmCritical, setConfirmCritical] = useState(false);
   const [editRow, setEditRow] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const haptics = useTelegramHaptics();
 
@@ -60,14 +61,16 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
   async function doInsert() {
     setSubmitting(true);
     try {
+      const mn = Number(entry.mortality_natural) || 0;
+      const mh = Number(entry.mortality_halal) || 0;
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from('daily_logs').insert([{
         batch_id: batch.id,
         log_date: entry.log_date,
         age,
-        mortality: (Number(entry.mortality_natural) || 0) + (Number(entry.mortality_halal) || 0),
-        mortality_natural: Number(entry.mortality_natural) || 0,
-        mortality_halal: Number(entry.mortality_halal) || 0,
+        mortality: mn + mh,
+        mortality_natural: mn,
+        mortality_halal: mh,
         medicine_id: entry.medicine_id || null,
         dosage: entry.dosage || null,
         water_consumption: entry.water ? Number(entry.water) : null,
@@ -107,35 +110,47 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
     const l = editRow;
     const mn = Number(l.mortality_natural) || 0;
     const mh = Number(l.mortality_halal) || 0;
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('daily_logs').update({
-      log_date: l.log_date,
-      age: ageOf(batch.start_date, l.log_date),
-      mortality: mn + mh,
-      mortality_natural: mn,
-      mortality_halal: mh,
-      water_consumption: l.water_consumption !== '' && l.water_consumption != null ? Number(l.water_consumption) : null,
-      weight: toFiniteOrNull(l.weight),
-      daily_feed: toFiniteOrNull(l.daily_feed),
-      medicine_id: l.medicine_id || null,
-      dosage: l.dosage || null,
-    }).eq('id', l.id);
-    if (error) { window.alert(error.message); return; }
-    if (!batch.is_summary) await syncSummaryBatchLog(l.log_date, user.id);
-    setEditRow(null);
-    await onReload();
+    setSavingEdit(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('daily_logs').update({
+        log_date: l.log_date,
+        age: ageOf(batch.start_date, l.log_date),
+        mortality: mn + mh,
+        mortality_natural: mn,
+        mortality_halal: mh,
+        water_consumption: l.water_consumption !== '' && l.water_consumption != null ? Number(l.water_consumption) : null,
+        weight: toFiniteOrNull(l.weight),
+        daily_feed: toFiniteOrNull(l.daily_feed),
+        medicine_id: l.medicine_id || null,
+        dosage: l.dosage || null,
+      }).eq('id', l.id);
+      if (error) { window.alert(error.message); return; }
+      if (!batch.is_summary) await syncSummaryBatchLog(l.log_date, user.id);
+      setEditRow(null);
+      await onReload();
+    } catch (e) {
+      window.alert('Ошибка: ' + e.message);
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function doDelete() {
     const log = logs.find((l) => l.id === deleteId);
-    const { error } = await supabase.from('daily_logs').delete().eq('id', deleteId);
-    if (error) { window.alert(error.message); setDeleteId(null); return; }
-    if (log && !batch.is_summary) {
-      const { data: { user } } = await supabase.auth.getUser();
-      await syncSummaryBatchLog(log.log_date, user.id);
+    try {
+      const { error } = await supabase.from('daily_logs').delete().eq('id', deleteId);
+      if (error) { window.alert(error.message); return; }
+      if (log && !batch.is_summary) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await syncSummaryBatchLog(log.log_date, user.id);
+      }
+      await onReload();
+    } catch (e) {
+      window.alert('Ошибка: ' + e.message);
+    } finally {
+      setDeleteId(null);
     }
-    setDeleteId(null);
-    await onReload();
   }
 
   useTelegramMainButton({
@@ -259,8 +274,12 @@ export default function MobileJournalTab({ batch, logs, medicines, onReload }) {
                 {medicines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </FormField>
-            <button type="button" onClick={saveEdit} className="rounded-xl px-4 py-3 text-base font-semibold bg-tg-button text-tg-button-text" style={{ minHeight: 48 }}>
-              Сохранить
+            <button
+              type="button" onClick={saveEdit} disabled={savingEdit}
+              className="rounded-xl px-4 py-3 text-base font-semibold bg-tg-button text-tg-button-text disabled:opacity-50"
+              style={{ minHeight: 48 }}
+            >
+              {savingEdit ? 'Сохраняем…' : 'Сохранить'}
             </button>
           </div>
         )}
