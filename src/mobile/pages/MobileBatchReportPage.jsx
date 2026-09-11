@@ -16,32 +16,41 @@ export default function MobileBatchReportPage() {
   const { batchId } = useParams();
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       setReport(null);
       setError('');
-      const { data: batchRow, error: batchError } = await supabase
-        .from('broiler_batches')
-        .select('is_summary, batch_name')
-        .eq('id', batchId)
-        .single();
-      if (batchError) { setError('Не удалось загрузить партию.'); return; }
+      try {
+        const { data: batchRow, error: batchError } = await supabase
+          .from('broiler_batches')
+          .select('is_summary, batch_name')
+          .eq('id', batchId)
+          .single();
+        if (batchError) { setError('Не удалось загрузить партию.'); return; }
 
-      if (batchRow.is_summary) {
-        const { data, error: rpcError } = await supabase.rpc('get_active_summary_report');
-        if (rpcError) setError('Не удалось сгенерировать сводный отчёт.');
-        else setReport({ ...data[0], batch_name: batchRow.batch_name, is_summary: true });
-      } else {
-        const { data, error: rpcError } = await supabase.rpc('generate_batch_report', { p_batch_id: batchId });
-        if (rpcError) setError('Не удалось сгенерировать отчёт. Убедитесь, что партия существует.');
-        else setReport(data);
+        if (batchRow.is_summary) {
+          const { data, error: rpcError } = await supabase.rpc('get_active_summary_report');
+          if (rpcError) { setError('Не удалось сгенерировать сводный отчёт.'); return; }
+          if (data?.[0]) setReport({ ...data[0], batch_name: batchRow.batch_name, is_summary: true });
+        } else {
+          const { data, error: rpcError } = await supabase.rpc('generate_batch_report', { p_batch_id: batchId });
+          if (rpcError) { setError('Не удалось сгенерировать отчёт. Убедитесь, что партия существует.'); return; }
+          if (data) setReport(data);
+        }
+      } catch (e) {
+        setError('Не удалось сгенерировать отчёт: ' + e.message);
+      } finally {
+        setLoading(false);
       }
     })();
   }, [batchId]);
 
+  if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
   if (error) return <EmptyState icon="⚠️" title="Ошибка" hint={error} />;
-  if (!report) return <div className="flex justify-center py-20"><Spinner /></div>;
+  if (!report) return <EmptyState icon="📭" title="Данные для отчета не найдены." />;
 
   return (
     <div className="flex flex-col gap-3 py-3">

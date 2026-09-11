@@ -1,6 +1,6 @@
 // src/mobile/pages/MobileBatchLogPage.jsx
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { calcMortality, forecastWeight, calcHistoricalMortality, buildWeightSeries } from '../../utils/normComparison';
 import { getNormForDay, FEED_BAG_WEIGHT_G } from '../../constants/broilerStandards';
@@ -19,6 +19,7 @@ function formatCurrency(v) {
 
 export default function MobileBatchLogPage() {
   const { batchId } = useParams();
+  const navigate = useNavigate();
   const [batch, setBatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('journal');
@@ -109,6 +110,13 @@ export default function MobileBatchLogPage() {
           <span className="text-lg font-semibold truncate">{batch.batch_name}</span>
           <StatusPill status={batch.is_active ? 'ok' : 'neutral'}>{batch.is_active ? 'Активна' : 'Завершена'}</StatusPill>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/batch/${batchId}/report`)}
+          className="text-sm text-tg-link underline mt-1"
+        >
+          Финансовый отчёт →
+        </button>
         <ListRow label="Начало" value={new Date(batch.start_date).toLocaleDateString('ru-RU')} />
         <ListRow label="Начальное поголовье" value={batch.initial_quantity?.toLocaleString('ru-RU')} />
         <ListRow label="Общий падёж" value={totalMortality} />

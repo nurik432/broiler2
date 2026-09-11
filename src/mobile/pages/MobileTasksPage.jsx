@@ -259,6 +259,13 @@ export default function MobileTasksPage() {
           <FormField label="Создал (ваше имя)">
             <input value={form.created_by} onChange={(e) => setForm((f) => ({ ...f, created_by: e.target.value }))} placeholder="Иванов И.И." className={fieldClass} style={{ minHeight: 44 }} />
           </FormField>
+          <button
+            type="button" onClick={save} disabled={saving}
+            className="rounded-xl px-4 py-3 text-base font-semibold bg-tg-button text-tg-button-text disabled:opacity-50"
+            style={{ minHeight: 48 }}
+          >
+            {saving ? 'Сохраняем…' : editingId ? 'Сохранить' : 'Создать задачу'}
+          </button>
         </div>
       </BottomSheet>
 
