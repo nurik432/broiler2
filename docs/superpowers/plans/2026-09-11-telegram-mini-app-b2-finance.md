@@ -2696,6 +2696,8 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
   async function saveEditPayment() {
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.alert('Не удалось определить пользователя. Попробуйте войти заново.'); return; }
       const { error } = await supabase.from('salaries').update({ payment_date: editDate, amount: Number(editAmount), payment_type: editType }).eq('id', editingPaymentId);
       if (error) { window.alert('Ошибка: ' + error.message); return; }
       setEditingPaymentId(null);
