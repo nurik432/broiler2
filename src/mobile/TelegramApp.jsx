@@ -13,6 +13,7 @@ import MobileBatchesPage from './pages/MobileBatchesPage';
 import MobileDailyEntryPage from './pages/MobileDailyEntryPage';
 import MobileBatchReportPage from './pages/MobileBatchReportPage';
 import MobileWorkshopsPage from './pages/MobileWorkshopsPage';
+import MobileWorkshopDetailPage from './pages/workshops/MobileWorkshopDetailPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -50,6 +51,7 @@ function AuthedRoutes() {
         <Route path="/daily-entry" element={<MobileDailyEntryPage />} />
         <Route path="/tasks" element={<MobileStub title="Задачи" />} />
         <Route path="/workshops" element={<MobileWorkshopsPage />} />
+        <Route path="/workshops/:workshopId" element={<MobileWorkshopDetailPage />} />
         <Route path="/medicines" element={<MobileStub title="Лекарства" />} />
         <Route path="/expenses" element={<MobileStub title="Расходы" />} />
         <Route path="/salaries" element={<MobileStub title="Сотрудники и ЗП" />} />
