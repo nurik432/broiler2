@@ -60,11 +60,16 @@ export default function MobileTasksPage() {
     if (!form.title.trim()) { window.alert('Укажите название задачи'); return; }
     if (!form.assignee_id) { window.alert('Выберите исполнителя'); return; }
     setSaving(true);
-    const payload = { ...form, workshop_id: form.workshop_id || null, due_date: form.due_date || null };
-    const { error } = editingId ? await updateTask(editingId, payload) : await createTask(payload);
-    setSaving(false);
-    if (error) window.alert('Ошибка: ' + error.message);
-    else setFormOpen(false);
+    try {
+      const payload = { ...form, workshop_id: form.workshop_id || null, due_date: form.due_date || null };
+      const { error } = editingId ? await updateTask(editingId, payload) : await createTask(payload);
+      if (error) window.alert('Ошибка: ' + error.message);
+      else setFormOpen(false);
+    } catch (e) {
+      window.alert('Ошибка: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   useTelegramMainButton({
@@ -75,9 +80,14 @@ export default function MobileTasksPage() {
   });
 
   async function confirmDelete() {
-    const { error } = await deleteTask(confirmDeleteId);
-    if (error) window.alert('Ошибка: ' + error.message);
-    setConfirmDeleteId(null);
+    try {
+      const { error } = await deleteTask(confirmDeleteId);
+      if (error) window.alert('Ошибка: ' + error.message);
+    } catch (e) {
+      window.alert('Ошибка: ' + e.message);
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
 
   return (
@@ -164,7 +174,10 @@ export default function MobileTasksPage() {
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => updateTask(task.id, { status: STATUS_NEXT[task.status] || 'open' })}
+                  onClick={async () => {
+                    const { error } = await updateTask(task.id, { status: STATUS_NEXT[task.status] || 'open' });
+                    if (error) window.alert('Ошибка: ' + error.message);
+                  }}
                   className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-white"
                   style={{ background: task.status === 'done' ? '#6c757d' : '#28a745', minHeight: 36 }}
                 >
