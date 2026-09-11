@@ -1,6 +1,7 @@
 // src/mobile/TelegramApp.jsx
 import { useCallback, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 import { initTelegram } from './telegram/sdk';
 import { applyThemeParams, subscribeTheme } from './telegram/theme';
 import { telegramSignIn } from './telegram/auth';
@@ -8,6 +9,7 @@ import SplashScreen from './screens/SplashScreen';
 import LinkingScreen from './screens/LinkingScreen';
 import AuthErrorScreen from './screens/AuthErrorScreen';
 import TelegramLayout from './layouts/TelegramLayout';
+import TelegramAdminLayout from './layouts/TelegramAdminLayout';
 import MobileStub from './screens/MobileStub';
 import MobileBatchesPage from './pages/MobileBatchesPage';
 import MobileDailyEntryPage from './pages/MobileDailyEntryPage';
@@ -24,6 +26,9 @@ import MobileCoalPage from './pages/MobileCoalPage';
 import MobileSalariesPage from './pages/MobileSalariesPage';
 import MobileMedicinesPage from './pages/MobileMedicinesPage';
 import MobileNotesPage from './pages/MobileNotesPage';
+import MobileAdminDashboardPage from './pages/admin/MobileAdminDashboardPage';
+import MobileAdminCreateClientPage from './pages/admin/MobileAdminCreateClientPage';
+import MobileAdminClientDetailPage from './pages/admin/MobileAdminClientDetailPage';
 
 export default function TelegramApp() {
   const [phase, setPhase] = useState('boot'); // boot | linking | error | ready
@@ -54,6 +59,34 @@ export default function TelegramApp() {
 }
 
 function AuthedRoutes() {
+  const [isAdmin, setIsAdmin] = useState(null); // null = checking
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) setIsAdmin(session?.user?.app_metadata?.role === 'admin');
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  if (isAdmin === null) return <SplashScreen message="Загрузка…" />;
+  return isAdmin ? <AdminRoutes /> : <ClientRoutes />;
+}
+
+function AdminRoutes() {
+  return (
+    <Routes>
+      <Route element={<TelegramAdminLayout />}>
+        <Route path="/" element={<MobileAdminDashboardPage />} />
+        <Route path="/create-client" element={<MobileAdminCreateClientPage />} />
+        <Route path="/client/:clientId" element={<MobileAdminClientDetailPage />} />
+        <Route path="*" element={<MobileAdminDashboardPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+function ClientRoutes() {
   return (
     <Routes>
       <Route element={<TelegramLayout />}>

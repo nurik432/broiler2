@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getWebApp } from './context';
 
-const ROOTS = new Set(['/', '/daily-entry', '/tasks']);
+// '/create-client' is the admin shell's second top-level tab (TelegramAdminLayout) —
+// harmless to include here since that path doesn't exist in the client route table.
+const ROOTS = new Set(['/', '/daily-entry', '/tasks', '/create-client']);
 
 export function useTelegramBackButton() {
   const location = useLocation();
