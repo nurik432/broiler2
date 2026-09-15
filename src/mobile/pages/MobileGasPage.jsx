@@ -25,6 +25,8 @@ export default function MobileGasPage() {
   const [showHidden, setShowHidden] = useState(false);
 
   const [activeTab, setActiveTab] = useState('reading');
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
   const [readingForm, setReadingForm] = useState(EMPTY_READING_FORM);
   const [topupForm, setTopupForm] = useState(EMPTY_TOPUP_FORM);
   const [priceForm, setPriceForm] = useState(EMPTY_PRICE_FORM);
@@ -68,8 +70,17 @@ export default function MobileGasPage() {
   const summary = useMemo(() => {
     const totalTopups = filteredTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const totalConsumedAmount = filteredReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    return { currentBalance: totalTopups - totalConsumedAmount };
+    return { currentBalance: totalTopups - totalConsumedAmount, totalConsumedAmount };
   }, [filteredTopups, filteredReadings]);
+
+  const rangeReadings = useMemo(() => filteredReadings.filter((r) => {
+    if (rangeFrom && r.reading_date < rangeFrom) return false;
+    if (rangeTo && r.reading_date > rangeTo) return false;
+    return true;
+  }), [filteredReadings, rangeFrom, rangeTo]);
+
+  const rangeTotalAmount = useMemo(() =>
+    rangeReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), [rangeReadings]);
 
   const forecast = useMemo(() => forecastGasBalance(filteredReadings, summary.currentBalance), [filteredReadings, summary.currentBalance]);
   const zeroBalancePoint = useMemo(() => projectedZeroBalanceReading(
@@ -173,6 +184,7 @@ export default function MobileGasPage() {
     <div className="flex flex-col gap-3 py-3">
       <StatGrid items={[
         { label: 'Текущий баланс', value: formatCurrency(summary.currentBalance), color: balanceColor },
+        { label: 'Расход газа (сумма)', value: formatCurrency(summary.totalConsumedAmount), color: '#dc3545' },
         { label: 'Цена газа', value: currentPrice ? `${currentPrice.price} смн/м³` : '—', color: '#007bff' },
         { label: 'Хватит на', value: forecast && forecast.daysRemaining != null ? `${forecast.daysRemaining} дн.` : 'нет данных', hint: forecast?.projectedEmptyDate ? `до ${forecast.projectedEmptyDate.toLocaleDateString('ru-RU')}` : null, color: forecast && forecast.daysRemaining != null && forecast.daysRemaining < 7 ? '#dc3545' : 'var(--tg-hint)' },
         { label: 'Обнулится при', value: zeroBalancePoint ? `${zeroBalancePoint.projectedReading} м³` : '—', hint: zeroBalancePoint ? `ещё ${zeroBalancePoint.m3Remaining} м³` : null, color: '#fd7e14' },
@@ -227,10 +239,30 @@ export default function MobileGasPage() {
             Показать скрытые позиции
           </label>
 
-          {filteredReadings.length === 0 ? (
-            <EmptyState icon="🔢" title="Показаний пока нет" />
+          <Card>
+            <div className="flex flex-col gap-3">
+              <FormField label="С какого числа">
+                <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className={fieldClass} style={{ minHeight: 44 }} />
+              </FormField>
+              <FormField label="По какое число">
+                <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className={fieldClass} style={{ minHeight: 44 }} />
+              </FormField>
+              {(rangeFrom || rangeTo) && (
+                <button type="button" onClick={() => { setRangeFrom(''); setRangeTo(''); }} className="text-xs text-tg-hint text-left">Сбросить период</button>
+              )}
+              <div className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'rgba(220,53,69,0.1)' }}>
+                <p className="text-xs font-medium" style={{ color: '#dc3545' }}>
+                  Сумма {(rangeFrom || rangeTo) ? 'за период' : 'за всё время'}
+                </p>
+                <p className="text-base font-bold" style={{ color: '#dc3545' }}>{formatCurrency(rangeTotalAmount)}</p>
+              </div>
+            </div>
+          </Card>
+
+          {rangeReadings.length === 0 ? (
+            <EmptyState icon="🔢" title={(rangeFrom || rangeTo) ? 'Нет показаний за выбранный период' : 'Показаний пока нет'} />
           ) : (
-            filteredReadings.map((r) => (
+            rangeReadings.map((r) => (
               <Card key={r.id} className={r.is_hidden ? 'opacity-50' : ''}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

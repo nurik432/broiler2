@@ -32,6 +32,10 @@ function GasPage() {
     const [newPriceDate, setNewPriceDate] = useState(new Date().toISOString().slice(0, 10));
     const [newPrice, setNewPrice] = useState('');
 
+    // --- Фильтр по периоду для истории показаний ---
+    const [rangeFrom, setRangeFrom] = useState('');
+    const [rangeTo, setRangeTo] = useState('');
+
     // --- Загрузка данных ---
     const fetchData = async () => {
         setLoading(true);
@@ -93,6 +97,17 @@ function GasPage() {
 
     const forecast = useMemo(() =>
         forecastGasBalance(filteredReadings, summary.currentBalance), [filteredReadings, summary.currentBalance]);
+
+    // --- Показания в выбранном периоде и сумма расхода по нему ---
+    const rangeReadings = useMemo(() =>
+        filteredReadings.filter(r => {
+            if (rangeFrom && r.reading_date < rangeFrom) return false;
+            if (rangeTo && r.reading_date > rangeTo) return false;
+            return true;
+        }), [filteredReadings, rangeFrom, rangeTo]);
+
+    const rangeTotalAmount = useMemo(() =>
+        rangeReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), [rangeReadings]);
 
     const zeroBalancePoint = useMemo(() =>
         projectedZeroBalanceReading(
@@ -240,10 +255,14 @@ function GasPage() {
             {/* === ДАШБОРД === */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Баланс и прогноз</h2>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
                     <div className={`p-4 rounded-lg ${balanceColorClasses.bg}`}>
                         <p className={`text-sm font-medium ${balanceColorClasses.text}`}>Текущий баланс</p>
                         <p className={`font-bold text-xl md:text-2xl ${balanceColorClasses.value}`}>{formatCurrency(summary.currentBalance)}</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-red-50">
+                        <p className="text-sm text-red-600 font-medium">Расход газа (сумма)</p>
+                        <p className="font-bold text-xl md:text-2xl text-red-700">{formatCurrency(summary.totalConsumedAmount)}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-blue-50">
                         <p className="text-sm text-blue-600 font-medium">Цена газа</p>
@@ -428,6 +447,30 @@ function GasPage() {
                     <div className="p-6 pb-3">
                         <h2 className="text-xl font-semibold text-gray-700">История показаний</h2>
                         <p className="text-sm text-gray-500 mt-1">Всего записей: {filteredReadings.length}</p>
+                        <div className="mt-4 flex flex-wrap items-end gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500">С какого числа</label>
+                                <input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
+                                    className="mt-1 p-2 border rounded-md text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500">По какое число</label>
+                                <input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
+                                    className="mt-1 p-2 border rounded-md text-sm" />
+                            </div>
+                            {(rangeFrom || rangeTo) && (
+                                <button type="button" onClick={() => { setRangeFrom(''); setRangeTo(''); }}
+                                    className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2">
+                                    Сбросить
+                                </button>
+                            )}
+                            <div className="ml-auto bg-red-50 rounded-lg px-4 py-2 text-right">
+                                <p className="text-xs text-red-600 font-medium">
+                                    Сумма расхода {(rangeFrom || rangeTo) ? 'за период' : 'за всё время'}
+                                </p>
+                                <p className="font-bold text-lg text-red-700">{formatCurrency(rangeTotalAmount)}</p>
+                            </div>
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
@@ -444,9 +487,11 @@ function GasPage() {
                             <tbody>
                                 {loading ? (
                                     <tr><td colSpan="6" className="text-center py-8 text-gray-400">Загрузка...</td></tr>
-                                ) : filteredReadings.length === 0 ? (
-                                    <tr><td colSpan="6" className="text-center py-8 text-gray-400">Показаний пока нет.</td></tr>
-                                ) : filteredReadings.map(r => (
+                                ) : rangeReadings.length === 0 ? (
+                                    <tr><td colSpan="6" className="text-center py-8 text-gray-400">
+                                        {(rangeFrom || rangeTo) ? 'Нет показаний за выбранный период.' : 'Показаний пока нет.'}
+                                    </td></tr>
+                                ) : rangeReadings.map(r => (
                                     <tr key={r.id} className={`border-b transition-colors ${r.is_hidden ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
                                         <td className="px-4 py-3 font-medium">{new Date(r.reading_date).toLocaleDateString('ru-RU')}</td>
                                         <td className="px-4 py-3">{r.reading_value} м³</td>
