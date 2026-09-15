@@ -79,11 +79,7 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
     return persons.filter((person) => {
       if (showArchived) return true;
       if (!person.employees || person.employees.length === 0) return false;
-      return person.employees.some((emp) => {
-        const batchIsActive = emp.broiler_batches?.is_active;
-        const empIsActive = emp.is_active !== false && !emp.end_date;
-        return empIsActive && (batchIsActive === true || batchIsActive === undefined);
-      });
+      return person.employees.some((emp) => emp.is_active !== false && !emp.end_date);
     });
   }, [persons, showArchived]);
 

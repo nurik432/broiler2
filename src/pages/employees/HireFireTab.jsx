@@ -1,6 +1,6 @@
 // src/pages/employees/HireFireTab.jsx
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import PersonAutocomplete from '../../components/PersonAutocomplete';
 import EmployeeCard from '../../components/EmployeeCard';
@@ -8,6 +8,16 @@ import EmployeeCard from '../../components/EmployeeCard';
 export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
     const [selectedPerson, setSelectedPerson] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (menuRef.current && !menuRef.current.contains(e.target)) setIsMenuOpen(false);
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Состояния для редактирования (мы редактируем последнюю/активную запись)
     const [isEditing, setIsEditing] = useState(false);
@@ -50,12 +60,8 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
         return persons.filter(person => {
             if (showArchived) return true;
             if (!person.employees || person.employees.length === 0) return false;
-            
-            return person.employees.some(emp => {
-                const batchIsActive = emp.broiler_batches?.is_active;
-                const empIsActive = emp.is_active !== false && !emp.end_date;
-                return empIsActive && (batchIsActive === true || batchIsActive === undefined);
-            });
+
+            return person.employees.some(emp => emp.is_active !== false && !emp.end_date);
         });
     }, [persons, showArchived]);
 
@@ -356,6 +362,7 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                     setIsAddingPeriod(false);
                                     setIsRehiring(false);
                                     setIsMerging(false);
+                                    setIsMenuOpen(false);
                                 }}
                             />
                         ))}
@@ -389,18 +396,12 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                 )}
                             </div>
 
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={handleStartEdit}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm"
-                                >
-                                    ✏️ Редактировать текущий период
-                                </button>
+                            <div className="flex items-center gap-2 relative" ref={menuRef}>
                                 {isEmployeeFired ? (
                                     <button
                                         onClick={handleStartRehire}
                                         disabled={isSaving}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-medium transition-colors shadow-sm disabled:bg-gray-300"
+                                        className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 text-base font-semibold shadow-md hover:shadow-lg transition-all disabled:bg-gray-300"
                                     >
                                         🔄 Принять заново
                                     </button>
@@ -412,29 +413,47 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                             }
                                         }}
                                         disabled={isSaving}
-                                        className="px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 text-sm font-medium transition-colors shadow-sm disabled:bg-gray-300"
+                                        className="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 text-base font-semibold shadow-md hover:shadow-lg transition-all disabled:bg-gray-300"
                                     >
                                         📤 Уволить
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-medium transition-colors shadow-sm"
+                                    onClick={() => setIsMenuOpen(o => !o)}
+                                    className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium border border-gray-200"
                                 >
-                                    🗑 Удалить
+                                    ⋯ Ещё
                                 </button>
-                                <button
-                                    onClick={handleStartAddPeriod}
-                                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium transition-colors shadow-sm"
-                                >
-                                    ➕ Добавить период
-                                </button>
-                                <button
-                                    onClick={handleStartMerge}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-medium transition-colors shadow-sm"
-                                >
-                                    🔗 Объединить с другим физлицом
-                                </button>
+
+                                {isMenuOpen && (
+                                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-20 py-1">
+                                        <button
+                                            onClick={() => { handleStartEdit(); setIsMenuOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+                                        >
+                                            ✏️ Редактировать текущий период
+                                        </button>
+                                        <button
+                                            onClick={() => { handleStartAddPeriod(); setIsMenuOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+                                        >
+                                            ➕ Добавить период
+                                        </button>
+                                        <button
+                                            onClick={() => { handleStartMerge(); setIsMenuOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+                                        >
+                                            🔗 Объединить с другим физлицом
+                                        </button>
+                                        <div className="border-t border-gray-100 my-1" />
+                                        <button
+                                            onClick={() => { setShowDeleteConfirm(true); setIsMenuOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            🗑 Удалить
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -452,72 +471,91 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                         )}
 
                         {isRehiring && (
-                            <form onSubmit={handleConfirmRehire} className="mb-6 pb-6 border-b bg-green-50 p-5 rounded-xl">
-                                <h3 className="font-bold mb-4 text-lg text-gray-800">🔄 Принять заново: {selectedPerson.full_name}</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="text-sm font-semibold">Должность</label>
-                                        <input type="text" value={rehirePosition} onChange={e => setRehirePosition(e.target.value)} className="w-full p-2.5 border rounded-xl mt-1" />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-semibold">Дата начала работы</label>
-                                        <input type="date" value={rehireStartDate} onChange={e => setRehireStartDate(e.target.value)} required className="w-full p-2.5 border rounded-xl mt-1" />
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <label className="text-sm font-semibold text-indigo-700">Партия / цех</label>
-                                        <select value={rehireBatchId} onChange={e => setRehireBatchId(e.target.value)} className="w-full p-2.5 border-2 border-indigo-200 rounded-xl mt-1">
-                                            <option value="">— Без партии —</option>
-                                            {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
-                                        </select>
-                                    </div>
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleCancelRehire}>
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                    <form onSubmit={handleConfirmRehire} className="bg-green-50 p-5 rounded-2xl">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <h3 className="font-bold text-lg text-gray-800">🔄 Принять заново: {selectedPerson.full_name}</h3>
+                                            <button type="button" onClick={handleCancelRehire} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">×</button>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="text-sm font-semibold">Должность</label>
+                                                <input type="text" value={rehirePosition} onChange={e => setRehirePosition(e.target.value)} className="w-full p-2.5 border rounded-xl mt-1" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-semibold">Дата начала работы</label>
+                                                <input type="date" value={rehireStartDate} onChange={e => setRehireStartDate(e.target.value)} required className="w-full p-2.5 border rounded-xl mt-1" />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className="text-sm font-semibold text-indigo-700">Партия / цех</label>
+                                                <select value={rehireBatchId} onChange={e => setRehireBatchId(e.target.value)} className="w-full p-2.5 border-2 border-indigo-200 rounded-xl mt-1">
+                                                    <option value="">— Без партии —</option>
+                                                    {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mb-4">Ставка и ступени оплаты подтянутся из последнего периода работы автоматически.</p>
+                                        <div className="flex gap-3">
+                                            <button type="submit" disabled={isSaving} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300">
+                                                {isSaving ? 'Сохранение...' : 'Принять на работу'}
+                                            </button>
+                                            <button type="button" onClick={handleCancelRehire} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
+                                        </div>
+                                    </form>
                                 </div>
-                                <p className="text-xs text-gray-400 mb-4">Ставка и ступени оплаты подтянутся из последнего периода работы автоматически.</p>
-                                <div className="flex gap-3">
-                                    <button type="submit" disabled={isSaving} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300">
-                                        {isSaving ? 'Сохранение...' : 'Принять на работу'}
-                                    </button>
-                                    <button type="button" onClick={handleCancelRehire} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
-                                </div>
-                            </form>
+                            </div>
                         )}
 
                         {isMerging && (
-                            <div className="mb-6 pb-6 border-b bg-purple-50 p-5 rounded-xl">
-                                <h3 className="font-bold mb-2 text-lg text-gray-800">🔗 Объединить «{selectedPerson.full_name}» с дублем</h3>
-                                <p className="text-sm text-gray-600 mb-4">
-                                    Найдите физлицо, которое на самом деле является тем же человеком. Вся его история работы
-                                    переедет в текущую карточку «{selectedPerson.full_name}», а дубль будет удалён.
-                                </p>
-                                <PersonAutocomplete
-                                    persons={persons}
-                                    value={mergeSearchText}
-                                    onChange={(text) => { setMergeSearchText(text); setMergeTarget(null); }}
-                                    onSelectExisting={(p) => { setMergeTarget(p); setMergeSearchText(p.full_name); }}
-                                    excludeId={selectedPerson.id}
-                                    placeholder="Введите ФИО дубля..."
-                                />
-                                {mergeTarget && (
-                                    <p className="text-xs text-purple-700 mt-2">
-                                        ✓ Выбран дубль: «{mergeTarget.full_name}» ({mergeTarget.employees?.length || 0} период(ов) работы будет перенесено)
-                                    </p>
-                                )}
-                                <div className="flex gap-3 mt-4">
-                                    <button
-                                        type="button"
-                                        onClick={handleConfirmMerge}
-                                        disabled={!mergeTarget || isSaving}
-                                        className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300"
-                                    >
-                                        {isSaving ? 'Объединение...' : 'Объединить'}
-                                    </button>
-                                    <button type="button" onClick={handleCancelMerge} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleCancelMerge}>
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                    <div className="bg-purple-50 p-5 rounded-2xl">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-lg text-gray-800">🔗 Объединить «{selectedPerson.full_name}» с дублем</h3>
+                                            <button type="button" onClick={handleCancelMerge} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">×</button>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-4">
+                                            Найдите физлицо, которое на самом деле является тем же человеком. Вся его история работы
+                                            переедет в текущую карточку «{selectedPerson.full_name}», а дубль будет удалён.
+                                        </p>
+                                        <PersonAutocomplete
+                                            persons={persons}
+                                            value={mergeSearchText}
+                                            onChange={(text) => { setMergeSearchText(text); setMergeTarget(null); }}
+                                            onSelectExisting={(p) => { setMergeTarget(p); setMergeSearchText(p.full_name); }}
+                                            excludeId={selectedPerson.id}
+                                            placeholder="Введите ФИО дубля..."
+                                        />
+                                        {mergeTarget && (
+                                            <p className="text-xs text-purple-700 mt-2">
+                                                ✓ Выбран дубль: «{mergeTarget.full_name}» ({mergeTarget.employees?.length || 0} период(ов) работы будет перенесено)
+                                            </p>
+                                        )}
+                                        <div className="flex gap-3 mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={handleConfirmMerge}
+                                                disabled={!mergeTarget || isSaving}
+                                                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm disabled:bg-gray-300"
+                                            >
+                                                {isSaving ? 'Объединение...' : 'Объединить'}
+                                            </button>
+                                            <button type="button" onClick={handleCancelMerge} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {isEditing && (
-                            <form onSubmit={handleSaveEdit} className="mb-6 pb-6 border-b bg-blue-50 p-5 rounded-xl">
-                                <h3 className="font-bold mb-4 text-lg text-gray-800">✏️ Редактирование последнего периода работы</h3>
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleCancelEdit}>
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                            <form onSubmit={handleSaveEdit} className="bg-blue-50 p-5 rounded-2xl">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="font-bold text-lg text-gray-800">✏️ Редактирование последнего периода работы</h3>
+                                    <button type="button" onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">×</button>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                     <div><label className="text-sm font-semibold">ФИО</label><input type="text" value={editName} onChange={e => setEditName(e.target.value)} required className="w-full p-2.5 border rounded-xl mt-1" /></div>
                                     <div><label className="text-sm font-semibold">Должность</label><input type="text" value={editPosition} onChange={e => setEditPosition(e.target.value)} className="w-full p-2.5 border rounded-xl mt-1" /></div>
@@ -602,11 +640,18 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                     <button type="button" onClick={handleCancelEdit} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
                                 </div>
                             </form>
+                            </div>
+                            </div>
                         )}
 
                         {isAddingPeriod && (
-                            <form onSubmit={handleSaveNewPeriod} className="mb-6 pb-6 border-b bg-emerald-50 p-5 rounded-xl">
-                                <h3 className="font-bold mb-4 text-lg text-gray-800">➕ Добавить новый период работы</h3>
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleCancelAddPeriod}>
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                            <form onSubmit={handleSaveNewPeriod} className="bg-emerald-50 p-5 rounded-2xl">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="font-bold text-lg text-gray-800">➕ Добавить новый период работы</h3>
+                                    <button type="button" onClick={handleCancelAddPeriod} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">×</button>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label className="text-sm font-semibold">Должность</label>
@@ -701,39 +746,39 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                                     <button type="button" onClick={handleCancelAddPeriod} className="bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Отмена</button>
                                 </div>
                             </form>
-                        )}
-
-                        {!isEditing && (
-                            <div className="mt-8">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">История работы (Периоды)</h3>
-                                {selectedPerson.employees && selectedPerson.employees.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {selectedPerson.employees.map((emp, index) => (
-                                            <div key={emp.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <span className="font-semibold text-indigo-700">
-                                                            {emp.position || 'Должность не указана'}
-                                                        </span>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            📅 {new Date(emp.start_date).toLocaleDateString()} — {emp.end_date ? new Date(emp.end_date).toLocaleDateString() : 'По настоящее время'}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm font-medium text-gray-800">Ставка: {emp.rate} TJS/день</p>
-                                                        {emp.broiler_batches && (
-                                                            <p className="text-xs text-gray-500 mt-1">Партия: {emp.broiler_batches.batch_name}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500">Нет записей о периодах работы.</p>
-                                )}
+                            </div>
                             </div>
                         )}
+
+                        <div className="mt-8">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4">История работы (Периоды)</h3>
+                            {selectedPerson.employees && selectedPerson.employees.length > 0 ? (
+                                <div className="space-y-3">
+                                    {selectedPerson.employees.map((emp) => (
+                                        <div key={emp.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <span className="font-semibold text-indigo-700">
+                                                        {emp.position || 'Должность не указана'}
+                                                    </span>
+                                                    <p className="text-sm text-gray-600 mt-1">
+                                                        📅 {new Date(emp.start_date).toLocaleDateString()} — {emp.end_date ? new Date(emp.end_date).toLocaleDateString() : 'По настоящее время'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-medium text-gray-800">Ставка: {emp.rate} TJS/день</p>
+                                                    {emp.broiler_batches && (
+                                                        <p className="text-xs text-gray-500 mt-1">Партия: {emp.broiler_batches.batch_name}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500">Нет записей о периодах работы.</p>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center bg-white p-12 rounded-2xl shadow-lg min-h-[400px]">

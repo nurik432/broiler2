@@ -43,6 +43,7 @@ export default function SalariesPage() {
         const { data, error } = await supabase
             .from('broiler_batches')
             .select('id, batch_name, start_date, is_active')
+            .eq('is_active', true)
             .order('start_date', { ascending: false });
         if (error) console.error('Ошибка загрузки партий:', error);
         else setActiveBatches(data);

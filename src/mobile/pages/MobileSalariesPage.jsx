@@ -28,7 +28,7 @@ export default function MobileSalariesPage() {
   }
 
   async function fetchActiveBatches() {
-    const { data, error } = await supabase.from('broiler_batches').select('id, batch_name, start_date, is_active').order('start_date', { ascending: false });
+    const { data, error } = await supabase.from('broiler_batches').select('id, batch_name, start_date, is_active').eq('is_active', true).order('start_date', { ascending: false });
     if (error) { window.alert('Ошибка: ' + error.message); return; }
     setActiveBatches(data || []);
   }
