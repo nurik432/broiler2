@@ -278,28 +278,39 @@ export default function MobileHireFireTab({ persons, activeBatches, fetchPersons
         filteredPersons.map((person) => {
           const latestEmp = person.employees?.[0];
           const batch = latestEmp?.broiler_batches;
-          const isArchived = !latestEmp || latestEmp.is_active === false || batch?.is_active === false;
+          const isFired = !latestEmp || latestEmp.is_active === false || !!latestEmp.end_date;
           const isExpanded = selectedPersonId === person.id;
           return (
             <Card key={person.id} onClick={() => setSelectedPersonId(isExpanded ? null : person.id)}>
-              <div className="flex justify-between items-start gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{person.full_name}</p>
-                  {latestEmp?.position && <p className="text-xs text-tg-hint">{latestEmp.position}</p>}
-                  {batch && (
-                    <span
-                      className="inline-block mt-1 text-xs rounded-full px-2 py-0.5"
-                      style={{
-                        background: batch.is_active ? 'color-mix(in srgb, var(--tg-link, #4f46e5) 15%, transparent)' : 'var(--tg-secondary-bg)',
-                        color: batch.is_active ? 'var(--tg-link, #4f46e5)' : 'var(--tg-hint)',
-                      }}
-                    >
-                      {batch.batch_name}{!batch.is_active && ' (архив)'}
-                    </span>
-                  )}
-                </div>
-                {isArchived && <span className="text-xs rounded-full px-2 py-0.5 shrink-0" style={{ background: 'color-mix(in srgb, #dc3545 15%, transparent)', color: '#dc3545' }}>уволен</span>}
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{person.full_name}</p>
+                {latestEmp?.position && <p className="text-xs text-tg-hint">{latestEmp.position}</p>}
               </div>
+
+              <div
+                className="mt-2 inline-flex items-center gap-1.5 text-xs rounded-full px-2 py-0.5 font-medium"
+                style={{
+                  background: isFired ? 'color-mix(in srgb, #dc3545 15%, transparent)' : 'color-mix(in srgb, #28a745 15%, transparent)',
+                  color: isFired ? '#dc3545' : '#28a745',
+                }}
+              >
+                <span>{isFired ? '🔴 Уволен' : '🟢 Работает'}</span>
+                {isFired
+                  ? latestEmp?.end_date && <span className="opacity-75">{new Date(latestEmp.end_date).toLocaleDateString('ru-RU')}</span>
+                  : latestEmp?.start_date && <span className="opacity-75">c {new Date(latestEmp.start_date).toLocaleDateString('ru-RU')}</span>}
+              </div>
+
+              {batch && (
+                <span
+                  className="inline-block mt-1.5 ml-2 text-xs rounded-full px-2 py-0.5"
+                  style={{
+                    background: batch.is_active ? 'color-mix(in srgb, var(--tg-link, #4f46e5) 15%, transparent)' : 'var(--tg-secondary-bg)',
+                    color: batch.is_active ? 'var(--tg-link, #4f46e5)' : 'var(--tg-hint)',
+                  }}
+                >
+                  {batch.batch_name}{!batch.is_active && ' (архив)'}
+                </span>
+              )}
 
               {isExpanded && (
                 <div className="mt-3 pt-3 flex flex-col gap-3" style={{ borderTop: '1px solid var(--tg-secondary-bg)' }} onClick={(e) => e.stopPropagation()}>

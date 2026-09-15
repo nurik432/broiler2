@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import PersonAutocomplete from '../../components/PersonAutocomplete';
+import EmployeeCard from '../../components/EmployeeCard';
 
 export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
     const [selectedPerson, setSelectedPerson] = useState(null);
@@ -341,52 +342,27 @@ export default function HireFireTab({ persons, activeBatches, fetchPersons }) {
                             <span>Уволенные</span>
                         </label>
                     </div>
-                    <ul className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto">
-                        {filteredPersons.map(person => {
-                            const latestEmp = person.employees?.[0];
-                            const batch = latestEmp?.broiler_batches;
-                            const isArchived = !latestEmp || latestEmp.is_active === false || batch?.is_active === false;
-                            
-                            return (
-                                <li
-                                    key={person.id}
-                                    onClick={() => {
-                                        setSelectedPerson(person);
-                                        setIsEditing(false);
-                                        setShowDeleteConfirm(false);
-                                        setIsAddingPeriod(false);
-                                        setIsRehiring(false);
-                                        setIsMerging(false);
-                                    }}
-                                    className={`p-3 rounded-xl cursor-pointer transition-all border ${
-                                        selectedPerson?.id === person.id
-                                            ? 'bg-indigo-50 border-indigo-400 shadow-sm'
-                                            : isArchived
-                                                ? 'bg-gray-50 border-gray-200 opacity-60 hover:opacity-80 hover:bg-gray-100'
-                                                : 'border-gray-100 hover:bg-gray-50 hover:border-gray-200'
-                                    }`}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-bold text-sm">{person.full_name}</p>
-                                        {isArchived && (
-                                            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">уволен</span>
-                                        )}
-                                    </div>
-                                    {latestEmp?.position && <p className="text-xs text-gray-500 mt-0.5">{latestEmp.position}</p>}
-                                    {batch && (
-                                        <p className={`text-xs mt-1.5 px-2 py-0.5 rounded-full inline-block ${
-                                            batch.is_active ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-500'
-                                        }`}>
-                                            {batch.batch_name} {!batch.is_active && '(архив)'}
-                                        </p>
-                                    )}
-                                </li>
-                            );
-                        })}
+                    <div className="grid grid-cols-1 gap-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                        {filteredPersons.map(person => (
+                            <EmployeeCard
+                                key={person.id}
+                                person={person}
+                                employment={person.employees?.[0]}
+                                isSelected={selectedPerson?.id === person.id}
+                                onClick={() => {
+                                    setSelectedPerson(person);
+                                    setIsEditing(false);
+                                    setShowDeleteConfirm(false);
+                                    setIsAddingPeriod(false);
+                                    setIsRehiring(false);
+                                    setIsMerging(false);
+                                }}
+                            />
+                        ))}
                         {filteredPersons.length === 0 && (
                             <p className="text-sm text-gray-400 text-center py-8">Нет сотрудников</p>
                         )}
-                    </ul>
+                    </div>
                 </div>
             </div>
 

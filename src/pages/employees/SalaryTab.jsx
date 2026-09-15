@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { calculateSalary } from '../../utils/calculateSalary';
+import EmployeeCard from '../../components/EmployeeCard';
 
 export default function SalaryTab({ selectedPerson, setSelectedPerson, activeBatches, persons }) {
     const [editingPayment, setEditingPayment] = useState(null);
@@ -71,6 +72,16 @@ export default function SalaryTab({ selectedPerson, setSelectedPerson, activeBat
     useEffect(() => {
         loadSalaries();
     }, [selectedPerson]);
+
+    // Только работающие сотрудники — для карточек
+    const activePersons = useMemo(() => {
+        return (persons || []).filter(p => {
+            const latest = p.employees?.[0];
+            if (!latest) return false;
+            const isFired = latest.is_active === false || !!latest.end_date;
+            return !isFired;
+        });
+    }, [persons]);
 
     // Current (most recent) employment
     const recentEmployment = selectedPerson?.employees?.[0];
@@ -227,35 +238,10 @@ export default function SalaryTab({ selectedPerson, setSelectedPerson, activeBat
 
     const formatCurrency = amount => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(amount);
 
-    if (!selectedPerson) {
-        return (
-            <div className="bg-white p-12 rounded-lg shadow-md text-center border border-gray-100">
-                <div className="text-4xl mb-4">👤</div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">Сотрудник не выбран</h2>
-                <p className="text-gray-500 mb-6">Пожалуйста, выберите сотрудника для начисления зарплаты.</p>
-                <div className="max-w-md mx-auto">
-                    <select
-                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                        onChange={e => {
-                            const p = persons.find(p => p.id === e.target.value);
-                            setSelectedPerson(p || null);
-                        }}
-                        value=""
-                    >
-                        <option value="" disabled>-- Выберите сотрудника --</option>
-                        {persons && persons.map(p => (
-                            <option key={p.id} value={p.id}>
-                                {p.full_name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            </div>
-        );
-    }
-
     const isEmployeeFired = !recentEmployment || recentEmployment.is_active === false || !!recentEmployment.end_date;
     const remainingToPay = Math.max(currentAccruedData.salary - currentTotals.totalAll, 0);
+    const isModalOpen = !!selectedPerson && !isEmployeeFired;
+    const closeModal = () => setSelectedPerson(null);
 
     // Helper to render a payment table
     const renderPaymentTable = (salaries, allowEdit = true) => (
@@ -318,183 +304,204 @@ export default function SalaryTab({ selectedPerson, setSelectedPerson, activeBat
     );
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Сотрудник:</label>
-                <select
-                    className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={selectedPerson.id}
-                    onChange={e => {
-                        const p = persons.find(p => p.id === e.target.value);
-                        setSelectedPerson(p || null);
-                    }}
-                >
-                    {persons && persons.map(p => (
-                        <option key={p.id} value={p.id}>
-                            {p.full_name}
-                        </option>
-                    ))}
-                </select>
+        <div>
+            <div className="mb-6">
+                <h2 className="text-xl font-bold text-gray-800">Сотрудники</h2>
+                <p className="text-sm text-gray-500 mt-1">Выберите сотрудника, чтобы записать аванс или выплатить зарплату</p>
             </div>
 
-            <div className="flex flex-wrap justify-between items-start mb-6 gap-4">
-                <div>
-                    <h2 className="text-2xl font-semibold">{selectedPerson.full_name}</h2>
-                    {isEmployeeFired ? (
-                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700">🔴 Уволен</div>
-                    ) : (
-                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">🟢 Работает</div>
-                    )}
-                </div>
-            </div>
-
-            {/* CURRENT PERIOD ACCRUAL WIDGET */}
-            <div className="mb-8 p-5 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl shadow-sm">
-                <h3 className="text-lg font-bold text-indigo-900 mb-1">Начисление за текущий период</h3>
-                {recentEmployment && (
-                    <p className="text-sm text-indigo-600 mb-4">
-                        📅 {new Date(recentEmployment.start_date).toLocaleDateString()} — {recentEmployment.end_date ? new Date(recentEmployment.end_date).toLocaleDateString() : 'По настоящее время'}
-                        {recentEmployment.broiler_batches && (
-                            <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                                {recentEmployment.broiler_batches.batch_name}
-                            </span>
-                        )}
-                    </p>
-                )}
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
-                        <p className="text-xs text-gray-500 mb-1">Отработано дней</p>
-                        <p className="font-bold text-xl text-gray-800">{currentAccruedData.effectiveDays} дн.</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
-                        <p className="text-xs text-gray-500 mb-1">Начислено по ставке</p>
-                        <p className="font-bold text-xl text-indigo-600">{formatCurrency(currentAccruedData.salary)}</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
-                        <p className="text-xs text-gray-500 mb-1">Выплачено (тек. период)</p>
-                        <p className="font-bold text-xl text-green-600">{formatCurrency(currentTotals.totalAll)}</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
-                        <p className="text-xs text-gray-500 mb-1">Остаток к выплате</p>
-                        <p className={`font-bold text-xl ${remainingToPay > 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                            {formatCurrency(remainingToPay)}
-                        </p>
-                    </div>
-                </div>
-
-                {currentAccruedData.breakdown && currentAccruedData.breakdown.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-indigo-100/50">
-                        <p className="text-xs font-semibold text-indigo-800 mb-2 uppercase tracking-wider">Детализация расчета:</p>
-                        <ul className="text-sm text-gray-600 space-y-1 ml-2">
-                            {currentAccruedData.breakdown.map((item, idx) => (
-                                <li key={idx} className="flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-300"></span>
-                                    <span>{item.label} = <strong>{formatCurrency(item.sum)}</strong></span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-
-            {/* Current period summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Авансы (тек. период)</p>
-                    <p className="font-bold text-lg text-gray-800">{formatCurrency(currentTotals.totalAdvance)}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Зарплаты (тек. период)</p>
-                    <p className="font-bold text-lg text-gray-800">{formatCurrency(currentTotals.totalSalary)}</p>
-                </div>
-                {Object.entries(currentTotals.byBatch).map(([batchId, info]) => (
-                    <div key={batchId} className={`p-4 rounded-xl border shadow-sm ${info.isActive ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Партия: {info.name} {info.isActive ? '' : '(архив)'} </p>
-                        <p className="font-bold text-lg text-gray-800">{formatCurrency(info.total)}</p>
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activePersons.map(p => (
+                    <EmployeeCard
+                        key={p.id}
+                        person={p}
+                        employment={p.employees?.[0]}
+                        isSelected={selectedPerson?.id === p.id}
+                        onClick={() => setSelectedPerson(p)}
+                    />
                 ))}
+                {activePersons.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-12 col-span-full">Нет работающих сотрудников</p>
+                )}
             </div>
 
-            {/* Current period payments */}
-            <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-800">Выплаты текущего периода</h3>
-            </div>
-
-            <form onSubmit={handleAddPayment} className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex flex-wrap items-end gap-4">
-                <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Дата</label>
-                    <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required />
-                </div>
-                <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Сумма</label>
-                    <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0.00" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required />
-                </div>
-                <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Тип</label>
-                    <select value={paymentType} onChange={e => setPaymentType(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <option value="аванс">Аванс</option>
-                        <option value="зарплата">Зарплата (остаток)</option>
-                    </select>
-                </div>
-                <div className="w-full md:w-auto mt-2 md:mt-0">
-                    <button type="submit" disabled={isAddingPayment} className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                        {isAddingPayment ? 'Добавление...' : '+ Выплатить'}
-                    </button>
-                </div>
-            </form>
-
-            {renderPaymentTable(currentPeriodSalaries, true)}
-
-            {/* PAST PERIODS SECTION */}
-            {pastPeriodGroups.length > 0 && (
-                <div className="mt-10">
-                    <button
-                        onClick={() => setShowPastPeriods(!showPastPeriods)}
-                        className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl hover:from-gray-100 hover:to-gray-150 transition-all shadow-sm group"
+            {isModalOpen && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                    onClick={closeModal}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                        onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex items-center gap-3">
-                            <span className="text-lg">📂</span>
-                            <span className="text-base font-bold text-gray-700">Выплаты прошлых периодов</span>
-                            <span className="text-sm text-gray-500 font-medium bg-white px-2.5 py-0.5 rounded-full border border-gray-200">
-                                {pastPeriodSalaries.length} выплат · {formatCurrency(pastTotals)}
-                            </span>
-                        </div>
-                        <span className={`text-gray-400 transition-transform duration-200 ${showPastPeriods ? 'rotate-180' : ''}`}>
-                            ▼
-                        </span>
-                    </button>
-
-                    {showPastPeriods && (
-                        <div className="mt-4 space-y-6">
-                            {pastPeriodGroups.map((group, gIdx) => (
-                                <div key={group.employee.id} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                                    <div className="px-5 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2">
-                                        <div>
-                                            <p className="font-semibold text-gray-700 text-sm">
-                                                📅 {group.periodLabel}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                {group.employee.position || 'Должность не указана'}
-                                                {group.employee.broiler_batches && (
-                                                    <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs">
-                                                        {group.employee.broiler_batches.batch_name}
-                                                    </span>
-                                                )}
-                                            </p>
-                                        </div>
-                                        <div className="text-right text-sm">
-                                            <p className="text-gray-500">Начислено: <strong className="text-indigo-600">{formatCurrency(group.accrued.salary)}</strong></p>
-                                            <p className="text-gray-500">Выплачено: <strong className="text-green-600">{formatCurrency(group.total)}</strong></p>
-                                        </div>
-                                    </div>
-                                    <div className="p-3">
-                                        {renderPaymentTable(group.salaries, true)}
+                        <div className="p-6">
+                            <div className="flex flex-wrap justify-between items-start mb-6 gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-semibold">{selectedPerson.full_name}</h2>
+                                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+                                        🟢 Работает {recentEmployment?.start_date && `(c ${new Date(recentEmployment.start_date).toLocaleDateString()})`}
                                     </div>
                                 </div>
-                            ))}
+                                <button
+                                    onClick={closeModal}
+                                    className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2"
+                                    aria-label="Закрыть"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {/* CURRENT PERIOD ACCRUAL WIDGET */}
+                            <div className="mb-8 p-5 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl shadow-sm">
+                                <h3 className="text-lg font-bold text-indigo-900 mb-1">Начисление за текущий период</h3>
+                                {recentEmployment && (
+                                    <p className="text-sm text-indigo-600 mb-4">
+                                        📅 {new Date(recentEmployment.start_date).toLocaleDateString()} — {recentEmployment.end_date ? new Date(recentEmployment.end_date).toLocaleDateString() : 'По настоящее время'}
+                                        {recentEmployment.broiler_batches && (
+                                            <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                                {recentEmployment.broiler_batches.batch_name}
+                                            </span>
+                                        )}
+                                    </p>
+                                )}
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
+                                        <p className="text-xs text-gray-500 mb-1">Отработано дней</p>
+                                        <p className="font-bold text-xl text-gray-800">{currentAccruedData.effectiveDays} дн.</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
+                                        <p className="text-xs text-gray-500 mb-1">Начислено по ставке</p>
+                                        <p className="font-bold text-xl text-indigo-600">{formatCurrency(currentAccruedData.salary)}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
+                                        <p className="text-xs text-gray-500 mb-1">Выплачено (тек. период)</p>
+                                        <p className="font-bold text-xl text-green-600">{formatCurrency(currentTotals.totalAll)}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
+                                        <p className="text-xs text-gray-500 mb-1">Остаток к выплате</p>
+                                        <p className={`font-bold text-xl ${remainingToPay > 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                                            {formatCurrency(remainingToPay)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {currentAccruedData.breakdown && currentAccruedData.breakdown.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-indigo-100/50">
+                                        <p className="text-xs font-semibold text-indigo-800 mb-2 uppercase tracking-wider">Детализация расчета:</p>
+                                        <ul className="text-sm text-gray-600 space-y-1 ml-2">
+                                            {currentAccruedData.breakdown.map((item, idx) => (
+                                                <li key={idx} className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-300"></span>
+                                                    <span>{item.label} = <strong>{formatCurrency(item.sum)}</strong></span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Current period summary cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Авансы (тек. период)</p>
+                                    <p className="font-bold text-lg text-gray-800">{formatCurrency(currentTotals.totalAdvance)}</p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Зарплаты (тек. период)</p>
+                                    <p className="font-bold text-lg text-gray-800">{formatCurrency(currentTotals.totalSalary)}</p>
+                                </div>
+                                {Object.entries(currentTotals.byBatch).map(([batchId, info]) => (
+                                    <div key={batchId} className={`p-4 rounded-xl border shadow-sm ${info.isActive ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Партия: {info.name} {info.isActive ? '' : '(архив)'} </p>
+                                        <p className="font-bold text-lg text-gray-800">{formatCurrency(info.total)}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Current period payments */}
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-gray-800">Выплаты текущего периода</h3>
+                            </div>
+
+                            <form onSubmit={handleAddPayment} className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex flex-wrap items-end gap-4">
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Дата</label>
+                                    <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required />
+                                </div>
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Сумма</label>
+                                    <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0.00" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required />
+                                </div>
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Тип</label>
+                                    <select value={paymentType} onChange={e => setPaymentType(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                        <option value="аванс">Аванс</option>
+                                        <option value="зарплата">Зарплата (остаток)</option>
+                                    </select>
+                                </div>
+                                <div className="w-full md:w-auto mt-2 md:mt-0">
+                                    <button type="submit" disabled={isAddingPayment} className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                        {isAddingPayment ? 'Добавление...' : '+ Выплатить'}
+                                    </button>
+                                </div>
+                            </form>
+
+                            {renderPaymentTable(currentPeriodSalaries, true)}
+
+                            {/* PAST PERIODS SECTION */}
+                            {pastPeriodGroups.length > 0 && (
+                                <div className="mt-10">
+                                    <button
+                                        onClick={() => setShowPastPeriods(!showPastPeriods)}
+                                        className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl hover:from-gray-100 hover:to-gray-150 transition-all shadow-sm group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg">📂</span>
+                                            <span className="text-base font-bold text-gray-700">Выплаты прошлых периодов</span>
+                                            <span className="text-sm text-gray-500 font-medium bg-white px-2.5 py-0.5 rounded-full border border-gray-200">
+                                                {pastPeriodSalaries.length} выплат · {formatCurrency(pastTotals)}
+                                            </span>
+                                        </div>
+                                        <span className={`text-gray-400 transition-transform duration-200 ${showPastPeriods ? 'rotate-180' : ''}`}>
+                                            ▼
+                                        </span>
+                                    </button>
+
+                                    {showPastPeriods && (
+                                        <div className="mt-4 space-y-6">
+                                            {pastPeriodGroups.map((group) => (
+                                                <div key={group.employee.id} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                                                    <div className="px-5 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2">
+                                                        <div>
+                                                            <p className="font-semibold text-gray-700 text-sm">
+                                                                📅 {group.periodLabel}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                                {group.employee.position || 'Должность не указана'}
+                                                                {group.employee.broiler_batches && (
+                                                                    <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs">
+                                                                        {group.employee.broiler_batches.batch_name}
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right text-sm">
+                                                            <p className="text-gray-500">Начислено: <strong className="text-indigo-600">{formatCurrency(group.accrued.salary)}</strong></p>
+                                                            <p className="text-gray-500">Выплачено: <strong className="text-green-600">{formatCurrency(group.total)}</strong></p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-3">
+                                                        {renderPaymentTable(group.salaries, true)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
         </div>

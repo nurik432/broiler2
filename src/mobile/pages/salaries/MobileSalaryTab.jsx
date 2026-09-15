@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../supabaseClient';
 import { calculateSalary } from '../../../utils/calculateSalary';
 import Card from '../../components/Card';
-import FormField from '../../components/FormField';
+import BottomSheet from '../../components/BottomSheet';
 import EmptyState from '../../components/EmptyState';
 import ConfirmSheet from '../../components/ConfirmSheet';
 
@@ -46,6 +46,15 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
   }
 
   useEffect(() => { loadSalaries(); }, [selectedPerson]);
+
+  const activePersons = useMemo(() => {
+    return (persons || []).filter((p) => {
+      const latest = p.employees?.[0];
+      if (!latest) return false;
+      const isFired = latest.is_active === false || !!latest.end_date;
+      return !isFired;
+    });
+  }, [persons]);
 
   const recentEmployment = selectedPerson?.employees?.[0];
   const currentEmployeeId = recentEmployment?.id;
@@ -136,24 +145,10 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
     await loadSalaries();
   }
 
-  if (!selectedPerson) {
-    return (
-      <div className="flex flex-col gap-3">
-        <EmptyState icon="👤" title="Сотрудник не выбран" hint="Выберите сотрудника ниже" />
-        <select
-          className={fieldClass} style={{ minHeight: 48 }}
-          onChange={(e) => setSelectedPerson(persons.find((p) => p.id === e.target.value) || null)}
-          value=""
-        >
-          <option value="" disabled>-- Выберите сотрудника --</option>
-          {persons && persons.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
-      </div>
-    );
-  }
-
   const isEmployeeFired = !recentEmployment || recentEmployment.is_active === false || !!recentEmployment.end_date;
   const remainingToPay = Math.max(currentAccruedData.salary - currentTotals.totalAll, 0);
+  const isSheetOpen = !!selectedPerson && !isEmployeeFired;
+  const closeSheet = () => setSelectedPerson(null);
 
   function renderPaymentRow(p, allowEdit) {
     const isEditing = editingPaymentId === p.id;
@@ -197,99 +192,121 @@ export default function MobileSalaryTab({ selectedPerson, setSelectedPerson, act
 
   return (
     <div className="flex flex-col gap-3">
-      <FormField label="Сотрудник">
-        <select
-          value={selectedPerson.id}
-          onChange={(e) => setSelectedPerson(persons.find((p) => p.id === e.target.value) || null)}
-          className={fieldClass} style={{ minHeight: 48 }}
-        >
-          {persons && persons.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
-      </FormField>
+      <p className="text-sm text-tg-hint px-1">Выберите сотрудника, чтобы записать аванс или выплатить зарплату</p>
 
-      <Card>
-        <p className="text-lg font-bold">{selectedPerson.full_name}</p>
-        {isEmployeeFired ? (
-          <p className="text-sm font-medium mt-1" style={{ color: '#dc3545' }}>🔴 Уволен</p>
-        ) : (
-          <p className="text-sm font-medium mt-1" style={{ color: '#28a745' }}>🟢 Работает</p>
-        )}
-      </Card>
+      {activePersons.length === 0 ? (
+        <EmptyState icon="👤" title="Нет работающих сотрудников" />
+      ) : (
+        activePersons.map((p) => {
+          const emp = p.employees?.[0];
+          const batch = emp?.broiler_batches;
+          return (
+            <Card key={p.id} onClick={() => setSelectedPerson(p)}>
+              <p className="font-semibold truncate">{p.full_name}</p>
+              {emp?.position && <p className="text-xs text-tg-hint">{emp.position}</p>}
+              <div
+                className="mt-2 inline-flex items-center gap-1.5 text-xs rounded-full px-2 py-0.5 font-medium"
+                style={{ background: 'color-mix(in srgb, #28a745 15%, transparent)', color: '#28a745' }}
+              >
+                <span>🟢 Работает</span>
+                {emp?.start_date && <span className="opacity-75">c {new Date(emp.start_date).toLocaleDateString('ru-RU')}</span>}
+              </div>
+              {batch && (
+                <span
+                  className="inline-block mt-1.5 ml-2 text-xs rounded-full px-2 py-0.5"
+                  style={{
+                    background: batch.is_active ? 'color-mix(in srgb, var(--tg-link, #4f46e5) 15%, transparent)' : 'var(--tg-secondary-bg)',
+                    color: batch.is_active ? 'var(--tg-link, #4f46e5)' : 'var(--tg-hint)',
+                  }}
+                >
+                  {batch.batch_name}{!batch.is_active && ' (архив)'}
+                </span>
+              )}
+            </Card>
+          );
+        })
+      )}
 
-      <Card style={{ background: 'color-mix(in srgb, var(--tg-link, #4f46e5) 8%, var(--tg-section-bg))' }}>
-        <p className="text-sm font-bold" style={{ color: 'var(--tg-link, #4f46e5)' }}>Начисление за текущий период</p>
-        {recentEmployment && (
-          <p className="text-xs text-tg-hint mt-1">
-            {new Date(recentEmployment.start_date).toLocaleDateString('ru-RU')} — {recentEmployment.end_date ? new Date(recentEmployment.end_date).toLocaleDateString('ru-RU') : 'По настоящее время'}
-            {recentEmployment.broiler_batches && ` · ${recentEmployment.broiler_batches.batch_name}`}
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div><p className="text-xs text-tg-hint">Отработано дней</p><p className="font-bold">{currentAccruedData.effectiveDays} дн.</p></div>
-          <div><p className="text-xs text-tg-hint">Начислено</p><p className="font-bold" style={{ color: 'var(--tg-link, #4f46e5)' }}>{formatCurrency(currentAccruedData.salary)}</p></div>
-          <div><p className="text-xs text-tg-hint">Выплачено</p><p className="font-bold" style={{ color: '#28a745' }}>{formatCurrency(currentTotals.totalAll)}</p></div>
-          <div><p className="text-xs text-tg-hint">Остаток</p><p className="font-bold" style={{ color: remainingToPay > 0 ? '#dc3545' : 'var(--tg-text)' }}>{formatCurrency(remainingToPay)}</p></div>
-        </div>
-        {currentAccruedData.breakdown && currentAccruedData.breakdown.length > 0 && (
-          <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--tg-secondary-bg)' }}>
-            <p className="text-xs font-semibold text-tg-hint mb-1">Детализация расчёта:</p>
-            {currentAccruedData.breakdown.map((item, idx) => (
-              <p key={idx} className="text-xs text-tg-hint">• {item.label} = <strong>{formatCurrency(item.sum)}</strong></p>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Card><p className="text-xs text-tg-hint">Авансы</p><p className="font-bold">{formatCurrency(currentTotals.totalAdvance)}</p></Card>
-        <Card><p className="text-xs text-tg-hint">Зарплаты</p><p className="font-bold">{formatCurrency(currentTotals.totalSalary)}</p></Card>
-        {Object.entries(currentTotals.byBatch).map(([batchId, info]) => (
-          <Card key={batchId}><p className="text-xs text-tg-hint">{info.name}{info.isActive ? '' : ' (архив)'}</p><p className="font-bold">{formatCurrency(info.total)}</p></Card>
-        ))}
-      </div>
-
-      <Card>
-        <p className="text-sm font-semibold mb-2">Выплатить</p>
-        <div className="flex flex-col gap-2">
-          <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={fieldClass} style={{ minHeight: 44 }} />
-          <input type="number" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="0.00" className={fieldClass} style={{ minHeight: 44 }} />
-          <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={fieldClass} style={{ minHeight: 44 }}>
-            <option value="аванс">Аванс</option>
-            <option value="зарплата">Зарплата (остаток)</option>
-          </select>
-          <button type="button" onClick={addPayment} disabled={saving} className="rounded-xl px-4 py-3 text-base font-semibold bg-tg-button text-tg-button-text disabled:opacity-60" style={{ minHeight: 48 }}>
-            {saving ? 'Добавление…' : '+ Выплатить'}
-          </button>
-        </div>
-      </Card>
-
-      <Card>
-        <p className="text-sm font-semibold mb-2">Выплаты текущего периода</p>
-        {currentPeriodSalaries.length === 0 ? <p className="text-sm text-tg-hint">Нет выплат</p> : currentPeriodSalaries.map((p) => renderPaymentRow(p, true))}
-      </Card>
-
-      {pastPeriodGroups.length > 0 && (
-        <Card onClick={() => setShowPastPeriods((v) => !v)}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">📂 Выплаты прошлых периодов ({pastPeriodSalaries.length} · {formatCurrency(pastTotals)})</p>
-            <span className="text-tg-hint">{showPastPeriods ? '▲' : '▼'}</span>
-          </div>
-          {showPastPeriods && (
-            <div className="mt-3 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
-              {pastPeriodGroups.map((group) => (
-                <div key={group.employee.id} className="rounded-xl bg-tg-secondary p-3">
-                  <p className="text-xs font-semibold">{group.periodLabel}</p>
-                  <p className="text-xs text-tg-hint">{group.employee.position || 'Должность не указана'}{group.employee.broiler_batches ? ` · ${group.employee.broiler_batches.batch_name}` : ''}</p>
-                  <p className="text-xs text-tg-hint mt-1">Начислено: <strong style={{ color: 'var(--tg-link, #4f46e5)' }}>{formatCurrency(group.accrued.salary)}</strong> · Выплачено: <strong style={{ color: '#28a745' }}>{formatCurrency(group.total)}</strong></p>
-                  <div className="mt-2">
-                    {group.salaries.length === 0 ? <p className="text-xs text-tg-hint">Нет выплат</p> : group.salaries.map((p) => renderPaymentRow(p, true))}
-                  </div>
+      <BottomSheet open={isSheetOpen} onClose={closeSheet} title={selectedPerson?.full_name}>
+        {selectedPerson && (
+          <div className="flex flex-col gap-3">
+            <Card style={{ background: 'color-mix(in srgb, var(--tg-link, #4f46e5) 8%, var(--tg-section-bg))' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--tg-link, #4f46e5)' }}>Начисление за текущий период</p>
+              {recentEmployment && (
+                <p className="text-xs text-tg-hint mt-1">
+                  {new Date(recentEmployment.start_date).toLocaleDateString('ru-RU')} — {recentEmployment.end_date ? new Date(recentEmployment.end_date).toLocaleDateString('ru-RU') : 'По настоящее время'}
+                  {recentEmployment.broiler_batches && ` · ${recentEmployment.broiler_batches.batch_name}`}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <div><p className="text-xs text-tg-hint">Отработано дней</p><p className="font-bold">{currentAccruedData.effectiveDays} дн.</p></div>
+                <div><p className="text-xs text-tg-hint">Начислено</p><p className="font-bold" style={{ color: 'var(--tg-link, #4f46e5)' }}>{formatCurrency(currentAccruedData.salary)}</p></div>
+                <div><p className="text-xs text-tg-hint">Выплачено</p><p className="font-bold" style={{ color: '#28a745' }}>{formatCurrency(currentTotals.totalAll)}</p></div>
+                <div><p className="text-xs text-tg-hint">Остаток</p><p className="font-bold" style={{ color: remainingToPay > 0 ? '#dc3545' : 'var(--tg-text)' }}>{formatCurrency(remainingToPay)}</p></div>
+              </div>
+              {currentAccruedData.breakdown && currentAccruedData.breakdown.length > 0 && (
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--tg-secondary-bg)' }}>
+                  <p className="text-xs font-semibold text-tg-hint mb-1">Детализация расчёта:</p>
+                  {currentAccruedData.breakdown.map((item, idx) => (
+                    <p key={idx} className="text-xs text-tg-hint">• {item.label} = <strong>{formatCurrency(item.sum)}</strong></p>
+                  ))}
                 </div>
+              )}
+            </Card>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Card><p className="text-xs text-tg-hint">Авансы</p><p className="font-bold">{formatCurrency(currentTotals.totalAdvance)}</p></Card>
+              <Card><p className="text-xs text-tg-hint">Зарплаты</p><p className="font-bold">{formatCurrency(currentTotals.totalSalary)}</p></Card>
+              {Object.entries(currentTotals.byBatch).map(([batchId, info]) => (
+                <Card key={batchId}><p className="text-xs text-tg-hint">{info.name}{info.isActive ? '' : ' (архив)'}</p><p className="font-bold">{formatCurrency(info.total)}</p></Card>
               ))}
             </div>
-          )}
-        </Card>
-      )}
+
+            <Card>
+              <p className="text-sm font-semibold mb-2">Выплатить</p>
+              <div className="flex flex-col gap-2">
+                <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={fieldClass} style={{ minHeight: 44 }} />
+                <input type="number" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="0.00" className={fieldClass} style={{ minHeight: 44 }} />
+                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={fieldClass} style={{ minHeight: 44 }}>
+                  <option value="аванс">Аванс</option>
+                  <option value="зарплата">Зарплата (остаток)</option>
+                </select>
+                <button type="button" onClick={addPayment} disabled={saving} className="rounded-xl px-4 py-3 text-base font-semibold bg-tg-button text-tg-button-text disabled:opacity-60" style={{ minHeight: 48 }}>
+                  {saving ? 'Добавление…' : '+ Выплатить'}
+                </button>
+              </div>
+            </Card>
+
+            <Card>
+              <p className="text-sm font-semibold mb-2">Выплаты текущего периода</p>
+              {currentPeriodSalaries.length === 0 ? <p className="text-sm text-tg-hint">Нет выплат</p> : currentPeriodSalaries.map((p) => renderPaymentRow(p, true))}
+            </Card>
+
+            {pastPeriodGroups.length > 0 && (
+              <Card onClick={() => setShowPastPeriods((v) => !v)}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">📂 Выплаты прошлых периодов ({pastPeriodSalaries.length} · {formatCurrency(pastTotals)})</p>
+                  <span className="text-tg-hint">{showPastPeriods ? '▲' : '▼'}</span>
+                </div>
+                {showPastPeriods && (
+                  <div className="mt-3 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+                    {pastPeriodGroups.map((group) => (
+                      <div key={group.employee.id} className="rounded-xl bg-tg-secondary p-3">
+                        <p className="text-xs font-semibold">{group.periodLabel}</p>
+                        <p className="text-xs text-tg-hint">{group.employee.position || 'Должность не указана'}{group.employee.broiler_batches ? ` · ${group.employee.broiler_batches.batch_name}` : ''}</p>
+                        <p className="text-xs text-tg-hint mt-1">Начислено: <strong style={{ color: 'var(--tg-link, #4f46e5)' }}>{formatCurrency(group.accrued.salary)}</strong> · Выплачено: <strong style={{ color: '#28a745' }}>{formatCurrency(group.total)}</strong></p>
+                        <div className="mt-2">
+                          {group.salaries.length === 0 ? <p className="text-xs text-tg-hint">Нет выплат</p> : group.salaries.map((p) => renderPaymentRow(p, true))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+        )}
+      </BottomSheet>
 
       <ConfirmSheet
         open={!!confirmDeletePaymentId}
