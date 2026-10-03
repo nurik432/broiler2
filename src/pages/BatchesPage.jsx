@@ -299,15 +299,29 @@ const { error: employeesError } = await supabase
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-4 sm:gap-6">
+                                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                                     <div className="text-center">
                                         <span className="text-xs sm:text-sm text-gray-500">Итоговое поголовье</span>
                                         <p className="font-bold text-xl sm:text-2xl text-green-600">{batch.current_quantity}</p>
                                     </div>
-                                    <div className="text-center">
-                                        <span className="text-xs sm:text-sm text-gray-500">Общий падеж</span>
-                                        <p className="font-bold text-xl sm:text-2xl text-red-600">{batch.total_mortality}</p>
-                                    </div>
+                                    {/* total_mortality_halal появляется после миграции 20261003120000; без неё показываем только общий */}
+                                    {batch.total_mortality_halal == null ? (
+                                        <div className="text-center">
+                                            <span className="text-xs sm:text-sm text-gray-500">Общий падеж</span>
+                                            <p className="font-bold text-xl sm:text-2xl text-red-600">{batch.total_mortality}</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="text-center">
+                                                <span className="text-xs sm:text-sm text-gray-500">Падеж</span>
+                                                <p className="font-bold text-xl sm:text-2xl text-red-600">{Math.max(batch.total_mortality - batch.total_mortality_halal, 0)}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <span className="text-xs sm:text-sm text-gray-500">Халяль</span>
+                                                <p className="font-bold text-xl sm:text-2xl text-orange-500">{batch.total_mortality_halal}</p>
+                                            </div>
+                                        </>
+                                    )}
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <Link to={`/batch/${batch.id}`} className="px-4 py-2 text-sm text-center font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600">
                                             Журнал

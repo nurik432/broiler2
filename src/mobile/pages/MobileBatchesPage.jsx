@@ -211,7 +211,15 @@ export default function MobileBatchesPage() {
               <ListRow label="День выращивания" value={age} />
               <ListRow label="Начальное поголовье" value={initial.toLocaleString('ru-RU')} />
               <ListRow label="Осталось" value={Number(b.current_quantity).toLocaleString('ru-RU')} />
-              <ListRow label="Падёж всего" value={Number(b.total_mortality).toLocaleString('ru-RU')} />
+              {/* total_mortality_halal появляется после миграции 20261003120000; без неё показываем только общий */}
+              {b.total_mortality_halal == null ? (
+                <ListRow label="Падёж всего" value={Number(b.total_mortality).toLocaleString('ru-RU')} />
+              ) : (
+                <>
+                  <ListRow label="Падёж" value={Math.max(b.total_mortality - b.total_mortality_halal, 0).toLocaleString('ru-RU')} />
+                  <ListRow label="Халяль" value={Number(b.total_mortality_halal).toLocaleString('ru-RU')} />
+                </>
+              )}
 
               {!b.is_summary && (
                 <FormField label="Цех">
