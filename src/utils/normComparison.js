@@ -57,16 +57,25 @@ export function compareWithNorm(day, field, value) {
 }
 
 /**
+ * Разложить суммарный падёж на естественный и халяль.
+ * Естественный = всего − халяль, чтобы старые записи без разбивки
+ * (только mortality) попадали в естественный и доли сходились с итогом.
+ */
+function splitMortality(logs) {
+  const totalDead  = logs.reduce((sum, r) => sum + (r.mortality || 0), 0);
+  const totalHalal = logs.reduce((sum, r) => sum + (r.mortality_halal || 0), 0);
+  return { totalDead, totalHalal, totalNatural: Math.max(totalDead - totalHalal, 0) };
+}
+
+/**
  * Рассчитать накопительный падёж и сверить с нормой ROSS-308
- * @param {Array<{age: number, mortality: number}>} logs - все записи журнала партии
+ * @param {Array<{age: number, mortality: number, mortality_halal?: number}>} logs - все записи журнала партии
  * @param {number} initialBirds - начальное поголовье
- * @returns {{ totalDead, factPercent, normPercent, status, currentWeek } | null}
+ * @returns {{ totalDead, totalNatural, totalHalal, factPercent, naturalPercent, halalPercent, normPercent, status, currentWeek } | null}
  */
 export function calcMortality(logs, initialBirds) {
   if (!logs?.length || !initialBirds) return null;
-  const totalDead    = logs.reduce((sum, r) => sum + (r.mortality || 0), 0);
-  const totalNatural = logs.reduce((sum, r) => sum + (r.mortality_natural || 0), 0);
-  const totalHalal   = logs.reduce((sum, r) => sum + (r.mortality_halal || 0), 0);
+  const { totalDead, totalNatural, totalHalal } = splitMortality(logs);
   const lastAge      = Math.max(...logs.map(r => r.age));
   const currentWeek  = Math.ceil(lastAge / 7);
   const factPercent  = (totalDead / initialBirds) * 100;
@@ -79,6 +88,8 @@ export function calcMortality(logs, initialBirds) {
     totalNatural,
     totalHalal,
     factPercent: factPercent.toFixed(2),
+    naturalPercent: ((totalNatural / initialBirds) * 100).toFixed(2),
+    halalPercent: ((totalHalal / initialBirds) * 100).toFixed(2),
     normPercent: normPercent.toFixed(1),
     status,
     currentWeek,
@@ -149,9 +160,9 @@ export function buildWeightSeries(logs, targetDay = 42) {
 /**
  * Рассчитать падёж по историческим партиям на указанный день
  * @param {Array} historicalBatches - [{id, batch_name, initial_quantity}]
- * @param {Array} historicalLogs    - [{batch_id, age, mortality}]
+ * @param {Array} historicalLogs    - [{batch_id, age, mortality, mortality_halal}]
  * @param {number} targetAge        - текущий возраст для сравнения
- * @returns {Array<{batchName, totalDead, percent}>}
+ * @returns {Array<{batchName, totalDead, totalNatural, totalHalal, percent, naturalPercent, halalPercent}>}
  */
 export function calcHistoricalMortality(historicalBatches, historicalLogs, targetAge) {
   if (!historicalBatches?.length || !historicalLogs?.length) return [];
@@ -160,14 +171,18 @@ export function calcHistoricalMortality(historicalBatches, historicalLogs, targe
     const batchLogs = historicalLogs.filter(
       l => l.batch_id === batch.id && l.age <= targetAge
     );
-    const totalDead = batchLogs.reduce((sum, r) => sum + (r.mortality || 0), 0);
-    const percent = batch.initial_quantity > 0
-      ? ((totalDead / batch.initial_quantity) * 100).toFixed(2)
+    const { totalDead, totalNatural, totalHalal } = splitMortality(batchLogs);
+    const toPercent = n => batch.initial_quantity > 0
+      ? ((n / batch.initial_quantity) * 100).toFixed(2)
       : '0.00';
     return {
       batchName: batch.batch_name,
       totalDead,
-      percent,
+      totalNatural,
+      totalHalal,
+      percent: toPercent(totalDead),
+      naturalPercent: toPercent(totalNatural),
+      halalPercent: toPercent(totalHalal),
       initialQuantity: batch.initial_quantity,
     };
   });

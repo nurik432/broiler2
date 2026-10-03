@@ -109,12 +109,9 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
         {mortality && (
           <div className="bg-white p-4 rounded-lg shadow-md border">
             <h4 className="text-lg font-semibold mb-2">💀 Падёж (накопительный)</h4>
-            <p className="text-sm text-gray-600">Пало: <strong className="text-gray-800">{mortality.totalDead} голов ({mortality.factPercent}%)</strong></p>
-            {(mortality.totalNatural > 0 || mortality.totalHalal > 0) && (
-              <p className="text-xs text-gray-500 mb-1">
-                Ест: <strong>{mortality.totalNatural}</strong> · Хал: <strong>{mortality.totalHalal}</strong>
-              </p>
-            )}
+            <p className="text-sm text-gray-600">Падёж: <strong className="text-gray-800">{mortality.totalNatural} голов ({mortality.naturalPercent}%)</strong></p>
+            <p className="text-sm text-gray-600">Халяль: <strong className="text-gray-800">{mortality.totalHalal} голов ({mortality.halalPercent}%)</strong></p>
+            <p className="text-sm text-gray-600">Всего: <strong className="text-gray-800">{mortality.totalDead} голов ({mortality.factPercent}%)</strong></p>
             <p className="text-sm text-gray-600">Норма ROSS-308: до <strong className="text-gray-800">{mortality.normPercent}%</strong></p>
             <p className="text-sm font-bold mt-1" style={{ color: STATUS_COLOR[mortality.status] }}>
               {mortality.status === 'ok'       && '✅ В норме'}
@@ -207,32 +204,37 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
         {histMortality.length > 0 && mortality && (
           <div className="bg-white p-4 rounded-lg shadow-md border">
             <h4 className="text-lg font-semibold mb-2">📊 Падёж vs предыдущие партии (день {lastAge})</h4>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="py-1">Партия</th>
-                  <th className="py-1">Поголовье</th>
-                  <th className="py-1">Падёж</th>
-                  <th className="py-1">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b font-semibold bg-indigo-50">
-                  <td className="py-1">Текущая</td>
-                  <td className="py-1">{initialBirds}</td>
-                  <td className="py-1">{mortality.totalDead}</td>
-                  <td className="py-1" style={{ color: STATUS_COLOR[mortality.status] }}>{mortality.factPercent}%</td>
-                </tr>
-                {histMortality.map((h, i) => (
-                  <tr key={i} className="border-b">
-                    <td className="py-1">{h.batchName}</td>
-                    <td className="py-1">{h.initialQuantity}</td>
-                    <td className="py-1">{h.totalDead}</td>
-                    <td className="py-1">{h.percent}%</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-1 pr-2">Партия</th>
+                    <th className="py-1 pr-2">Поголовье</th>
+                    <th className="py-1 pr-2">Падёж</th>
+                    <th className="py-1 pr-2">Халяль</th>
+                    <th className="py-1">Всего</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <tr className="border-b font-semibold bg-indigo-50">
+                    <td className="py-1 pr-2">Текущая</td>
+                    <td className="py-1 pr-2">{initialBirds}</td>
+                    <td className="py-1 pr-2 whitespace-nowrap">{mortality.totalNatural} ({mortality.naturalPercent}%)</td>
+                    <td className="py-1 pr-2 whitespace-nowrap">{mortality.totalHalal} ({mortality.halalPercent}%)</td>
+                    <td className="py-1 whitespace-nowrap" style={{ color: STATUS_COLOR[mortality.status] }}>{mortality.totalDead} ({mortality.factPercent}%)</td>
+                  </tr>
+                  {histMortality.map((h, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="py-1 pr-2">{h.batchName}</td>
+                      <td className="py-1 pr-2">{h.initialQuantity}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{h.totalNatural} ({h.naturalPercent}%)</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{h.totalHalal} ({h.halalPercent}%)</td>
+                      <td className="py-1 whitespace-nowrap">{h.totalDead} ({h.percent}%)</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

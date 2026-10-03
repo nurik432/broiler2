@@ -260,7 +260,7 @@ function BatchLogPage() {
             if (otherBatches.length > 0) {
                 const histLogsRes = await supabase
                     .from('daily_logs')
-                    .select('batch_id, age, mortality')
+                    .select('batch_id, age, mortality, mortality_halal')
                     .in('batch_id', otherBatches.map(b => b.id));
                 setHistoricalLogs(histLogsRes.data || []);
             }

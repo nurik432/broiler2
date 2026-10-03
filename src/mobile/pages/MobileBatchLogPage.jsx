@@ -61,7 +61,7 @@ export default function MobileBatchLogPage() {
       if (others?.length) {
         const { data: histLogs } = await supabase
           .from('daily_logs')
-          .select('batch_id, age, mortality')
+          .select('batch_id, age, mortality, mortality_halal')
           .in('batch_id', others.map((b) => b.id));
         setHistoricalLogs(histLogs || []);
       } else {
@@ -135,7 +135,9 @@ export default function MobileBatchLogPage() {
           {mortality && (
             <Card>
               <p className="text-sm font-semibold mb-1">💀 Падёж (накопительный)</p>
-              <ListRow label="Пало" value={`${mortality.totalDead} гол. (${mortality.factPercent}%)`} />
+              <ListRow label="Падёж" value={`${mortality.totalNatural} гол. (${mortality.naturalPercent}%)`} />
+              <ListRow label="Халяль" value={`${mortality.totalHalal} гол. (${mortality.halalPercent}%)`} />
+              <ListRow label="Всего" value={`${mortality.totalDead} гол. (${mortality.factPercent}%)`} />
               <ListRow label="Норма ROSS-308" value={`до ${mortality.normPercent}%`} />
               <div className="pt-1">
                 <StatusPill status={mortality.status}>
@@ -174,9 +176,18 @@ export default function MobileBatchLogPage() {
           {histMortality.length > 0 && mortality && (
             <Card>
               <p className="text-sm font-semibold mb-2">📊 Падёж vs предыдущие партии (день {lastLog.age})</p>
-              <ListRow label="Текущая" value={`${mortality.totalDead} / ${mortality.factPercent}%`} />
+              <ListRow
+                label="Текущая"
+                hint={`падёж ${mortality.naturalPercent}% · халяль ${mortality.halalPercent}%`}
+                value={`${mortality.totalDead} / ${mortality.factPercent}%`}
+              />
               {histMortality.map((h, i) => (
-                <ListRow key={i} label={h.batchName} value={`${h.totalDead} / ${h.percent}%`} />
+                <ListRow
+                  key={i}
+                  label={h.batchName}
+                  hint={`падёж ${h.naturalPercent}% · халяль ${h.halalPercent}%`}
+                  value={`${h.totalDead} / ${h.percent}%`}
+                />
               ))}
             </Card>
           )}
