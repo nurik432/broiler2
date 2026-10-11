@@ -12,7 +12,7 @@ import { useTelegramMainButton } from '../telegram/useTelegramMainButton';
 
 const KG_PER_BAG = 40;
 const fieldClass = 'w-full rounded-xl px-3 bg-tg-secondary text-tg-text';
-const formatCurrency = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(v || 0);
+const formatCurrency = (v) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'USD' }).format(v || 0);
 const EMPTY_FORM = { delivery_date: new Date().toISOString().slice(0, 10), feed_type: 'старт', bags: '', batch_id: '', price_per_kg: '', transaction_type: 'purchase', company: '' };
 
 export default function MobileFeedPage() {
@@ -200,8 +200,8 @@ export default function MobileFeedPage() {
               {activeBatches.map((b) => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
             </select>
           </FormField>
-          <FormField label="Цена за кг (опционально)">
-            <input type="number" step="0.01" value={form.price_per_kg} onChange={(e) => setForm((f) => ({ ...f, price_per_kg: e.target.value }))} placeholder="5.00" className={fieldClass} style={{ minHeight: 44 }} />
+          <FormField label="Цена за кг, $ (опционально)">
+            <input type="number" step="0.01" value={form.price_per_kg} onChange={(e) => setForm((f) => ({ ...f, price_per_kg: e.target.value }))} placeholder="0.50" className={fieldClass} style={{ minHeight: 44 }} />
           </FormField>
           {Number(form.price_per_kg) > 0 && (
             <FormField label="Тип оплаты">

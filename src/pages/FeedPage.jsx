@@ -27,7 +27,7 @@ function FeedPage() {
     const [transactionType, setTransactionType] = useState('purchase');
     const [company, setCompany] = useState('');
 
-    const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(value || 0);
+    const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'USD' }).format(value || 0);
 
     // 1. Загрузка данных
     const fetchData = async () => {
@@ -186,7 +186,7 @@ function FeedPage() {
                                 {activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
                             </select>
                         </div>
-                        <div><label className="block text-sm font-medium">Цена за кг</label><input type="number" step="0.01" placeholder="5.00" value={pricePerKg} onChange={e => setPricePerKg(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
+                        <div><label className="block text-sm font-medium">Цена за кг ($)</label><input type="number" step="0.01" placeholder="0.50" value={pricePerKg} onChange={e => setPricePerKg(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
                         <div><label className="block text-sm font-medium">Тип оплаты</label><select value={transactionType} onChange={e => setTransactionType(e.target.value)} className="mt-1 w-full p-2 border rounded-md bg-white"><option value="purchase">Сразу</option><option value="debt">В долг</option></select></div>
                         <div><label className="block text-sm font-medium">Фирма</label><input type="text" placeholder="(необязательно)" value={company} onChange={e => setCompany(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
                         <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 disabled:bg-gray-400">{isSubmitting ? 'Добавление...' : 'Добавить'}</button>
@@ -205,7 +205,7 @@ function FeedPage() {
                     <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
                         <tr>
                             <th className="px-6 py-3">Дата / Время</th><th className="px-6 py-3">Тип корма</th>
-                            <th className="px-6 py-3">Мешки</th><th className="px-6 py-3">Кг</th><th className="px-6 py-3">Сумма</th><th className="px-6 py-3">Партия</th>
+                            <th className="px-6 py-3">Мешки</th><th className="px-6 py-3">Кг</th><th className="px-6 py-3">Сумма ($)</th><th className="px-6 py-3">Партия</th>
                             <th className="px-6 py-3 text-right">Действия</th>
                         </tr>
                     </thead>
@@ -219,7 +219,7 @@ function FeedPage() {
                                         <td className="p-2"><select value={editFormData.feed_type} onChange={e => setEditFormData({...editFormData, feed_type: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="старт">Старт</option><option value="рост">Рост</option><option value="финиш">Финиш</option></select></td>
                                         <td className="p-2"><input type="number" step="0.5" value={editFormData.bags} onChange={e => setEditFormData({...editFormData, bags: e.target.value})} className="p-1 border rounded w-24" placeholder="меш."/></td>
                                         <td className="p-2 text-xs text-gray-500">{((Number(editFormData.bags) || 0) * KG_PER_BAG).toFixed(0)} кг</td>
-                                        <td className="p-2"><input type="number" step="0.01" value={editFormData.price_per_kg} onChange={e => setEditFormData({...editFormData, price_per_kg: e.target.value})} className="p-1 border rounded w-20" placeholder="цена/кг"/></td>
+                                        <td className="p-2"><input type="number" step="0.01" value={editFormData.price_per_kg} onChange={e => setEditFormData({...editFormData, price_per_kg: e.target.value})} className="p-1 border rounded w-20" placeholder="$/кг"/></td>
                                         <td className="p-2"><select value={editFormData.batch_id} onChange={e => setEditFormData({...editFormData, batch_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Не привязывать --</option>{activeBatches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}</select></td>
                                         <td className="px-6 py-4 text-right flex gap-1 justify-end"><button onClick={() => handleUpdate(d.id)} className="font-medium text-green-600 px-2 py-2">Сохранить</button><button onClick={() => setEditingId(null)} className="font-medium text-gray-500 px-2 py-2">Отмена</button></td>
                                     </>
