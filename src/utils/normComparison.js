@@ -255,6 +255,7 @@ export function calcHistoricalMortality(historicalBatches, historicalLogs, targe
       naturalPercent: toPercent(totalNatural),
       halalPercent: toPercent(totalHalal),
       initialQuantity: batch.initial_quantity,
+      startDate: batch.start_date,
     };
   });
 }

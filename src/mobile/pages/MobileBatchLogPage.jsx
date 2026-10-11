@@ -179,14 +179,14 @@ export default function MobileBatchLogPage() {
               <p className="text-sm font-semibold mb-2">📊 Падёж vs предыдущие партии (день {lastLog.age})</p>
               <ListRow
                 label="Текущая"
-                hint={`падёж ${mortality.naturalPercent}% · халяль ${mortality.halalPercent}%`}
+                hint={`${batch?.start_date ? `${new Date(batch.start_date).toLocaleDateString('ru-RU')} · ` : ''}падёж ${mortality.naturalPercent}% · халяль ${mortality.halalPercent}%`}
                 value={`${mortality.totalDead} / ${mortality.factPercent}%`}
               />
               {histMortality.map((h, i) => (
                 <ListRow
                   key={i}
                   label={h.batchName}
-                  hint={`падёж ${h.naturalPercent}% · халяль ${h.halalPercent}%`}
+                  hint={`${h.startDate ? `${new Date(h.startDate).toLocaleDateString('ru-RU')} · ` : ''}падёж ${h.naturalPercent}% · халяль ${h.halalPercent}%`}
                   value={`${h.totalDead} / ${h.percent}%`}
                 />
               ))}

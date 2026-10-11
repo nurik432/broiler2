@@ -209,6 +209,7 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
                     <th className="py-1 pr-2">Партия</th>
+                    <th className="py-1 pr-2">Дата</th>
                     <th className="py-1 pr-2">Поголовье</th>
                     <th className="py-1 pr-2">Падёж</th>
                     <th className="py-1 pr-2">Халяль</th>
@@ -218,6 +219,7 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
                 <tbody>
                   <tr className="border-b font-semibold bg-indigo-50">
                     <td className="py-1 pr-2">Текущая</td>
+                    <td className="py-1 pr-2 text-gray-600 whitespace-nowrap">{currentBatch?.start_date ? new Date(currentBatch.start_date).toLocaleDateString('ru-RU') : '—'}</td>
                     <td className="py-1 pr-2">{initialBirds}</td>
                     <td className="py-1 pr-2 whitespace-nowrap">{mortality.totalNatural} ({mortality.naturalPercent}%)</td>
                     <td className="py-1 pr-2 whitespace-nowrap">{mortality.totalHalal} ({mortality.halalPercent}%)</td>
@@ -226,6 +228,7 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
                   {histMortality.map((h, i) => (
                     <tr key={i} className="border-b">
                       <td className="py-1 pr-2">{h.batchName}</td>
+                      <td className="py-1 pr-2 text-gray-500 whitespace-nowrap">{h.startDate ? new Date(h.startDate).toLocaleDateString('ru-RU') : '—'}</td>
                       <td className="py-1 pr-2">{h.initialQuantity}</td>
                       <td className="py-1 pr-2 whitespace-nowrap">{h.totalNatural} ({h.naturalPercent}%)</td>
                       <td className="py-1 pr-2 whitespace-nowrap">{h.totalHalal} ({h.halalPercent}%)</td>
