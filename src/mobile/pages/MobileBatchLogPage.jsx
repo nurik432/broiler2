@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { calcMortality, forecastWeight, calcHistoricalMortality, buildWeightSeries } from '../../utils/normComparison';
+import { calcMortality, forecastWeight, calcHistoricalMortality, buildWeightSeries, getTopSimilarBatches } from '../../utils/normComparison';
 import { getNormForDay, FEED_BAG_WEIGHT_G } from '../../constants/broilerStandards';
 import Card from '../components/Card';
 import ListRow from '../components/ListRow';
@@ -55,14 +55,15 @@ export default function MobileBatchLogPage() {
 
       const { data: others } = await supabase
         .from('broiler_batches')
-        .select('id, batch_name, initial_quantity')
+        .select('id, batch_name, initial_quantity, workshop_id, is_summary, start_date')
         .neq('id', batchId);
-      setHistoricalBatches(others || []);
-      if (others?.length) {
+      const topOthers = getTopSimilarBatches(others || [], batchRes.data, 10);
+      setHistoricalBatches(topOthers);
+      if (topOthers?.length) {
         const { data: histLogs } = await supabase
           .from('daily_logs')
           .select('batch_id, age, mortality, mortality_halal')
-          .in('batch_id', others.map((b) => b.id));
+          .in('batch_id', topOthers.map((b) => b.id));
         setHistoricalLogs(histLogs || []);
       } else {
         setHistoricalLogs([]);
@@ -86,7 +87,7 @@ export default function MobileBatchLogPage() {
   const mortality = logs.length && batch ? calcMortality(logs, batch.initial_quantity) : null;
   const forecast = logs.length ? forecastWeight(logs, 42) : null;
   const weightSeries = logs.length ? buildWeightSeries(logs, 42) : [];
-  const histMortality = lastLog ? calcHistoricalMortality(historicalBatches, historicalLogs, lastLog.age) : [];
+  const histMortality = lastLog ? calcHistoricalMortality(historicalBatches, historicalLogs, lastLog.age, batch) : [];
   const waterPerHead = lastLog?.water_consumption && currentQuantity > 0
     ? Math.round((lastLog.water_consumption * 1000) / currentQuantity) : null;
   const feedPerHead = lastLog?.daily_feed && currentQuantity > 0

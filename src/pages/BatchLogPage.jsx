@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import NormIndicator from '../components/NormIndicator';
 import DashboardNormFact from '../components/DashboardNormFact';
-import { compareWithNorm } from '../utils/normComparison';
+import { compareWithNorm, getTopSimilarBatches } from '../utils/normComparison';
 import { getWeekMortalityNorm, FEED_BAG_WEIGHT_G } from '../constants/broilerStandards';
 import { syncSummaryBatchLog } from '../utils/summaryBatchSync';
 
@@ -249,20 +249,23 @@ function BatchLogPage() {
             if (feedRes.error) throw feedRes.error; setFeed(feedRes.data || []);
             if (salariesRes.error) throw salariesRes.error; setSalaries(salariesRes.data || []);
 
-            // Историческое сравнение падежа: загружаем другие партии
+            // Историческое сравнение падежа: загружаем топ 10 схожих партий
             const otherBatchesRes = await supabase
                 .from('broiler_batches')
-                .select('id, batch_name, initial_quantity')
+                .select('id, batch_name, initial_quantity, workshop_id, is_summary, start_date')
                 .neq('id', batchId);
             const otherBatches = otherBatchesRes.data || [];
-            setHistoricalBatches(otherBatches);
+            const topBatches = getTopSimilarBatches(otherBatches, batchRes.data, 10);
+            setHistoricalBatches(topBatches);
 
-            if (otherBatches.length > 0) {
+            if (topBatches.length > 0) {
                 const histLogsRes = await supabase
                     .from('daily_logs')
                     .select('batch_id, age, mortality, mortality_halal')
-                    .in('batch_id', otherBatches.map(b => b.id));
+                    .in('batch_id', topBatches.map(b => b.id));
                 setHistoricalLogs(histLogsRes.data || []);
+            } else {
+                setHistoricalLogs([]);
             }
 
         } catch (error) {
@@ -379,6 +382,7 @@ function BatchLogPage() {
                 initialBirds={batch.initial_quantity}
                 historicalBatches={historicalBatches}
                 historicalLogs={historicalLogs}
+                currentBatch={batch}
             />
 
             {/* Фильтр падежа по периоду */}

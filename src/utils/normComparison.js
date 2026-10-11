@@ -158,16 +158,87 @@ export function buildWeightSeries(logs, targetDay = 42) {
 }
 
 /**
+ * Выбрать топ N партий, наиболее схожих с текущей (активной) партией.
+ * Алгоритм (по приоритету цеха и поголовья):
+ * 1. Исключить текущую партию и сводные партии (is_summary).
+ * 2. Приоритет тому же цеху:
+ *    - Сначала предыдущие партии того же цеха (отсортированные по близости поголовья, затем по дате).
+ *    - Оставшиеся места дополняются партиями из других цехов, наиболее близкими по поголовью.
+ * 3. Всего возвращается не более limit (по умолчанию 10) партий.
+ *
+ * @param {Array<object>} allBatches - список всех остальных партий
+ * @param {object} currentBatch - текущая партия { id, workshop_id, initial_quantity, is_summary }
+ * @param {number} limit - максимальное количество партий (default: 10)
+ * @returns {Array<object>} - массив отфильтрованных и отсортированных партий
+ */
+export function getTopSimilarBatches(allBatches, currentBatch, limit = 10) {
+  if (!allBatches?.length || !currentBatch) return [];
+
+  const currentInitial = Number(currentBatch.initial_quantity) || 0;
+  const currentWorkshopId = currentBatch.workshop_id || null;
+  const isCurrentSummary = Boolean(currentBatch.is_summary);
+
+  // 1. Фильтруем: не текущая, исключаем сводные (если текущая не сводная)
+  const validBatches = allBatches.filter(b => {
+    if (!b || b.id === currentBatch.id) return false;
+    if (!isCurrentSummary && (b.is_summary || b.batch_name?.includes('Сводка'))) return false;
+    return true;
+  });
+
+  // Функция сравнения по близости поголовья и дате
+  const compareBySimilarity = (a, b) => {
+    const diffA = Math.abs((Number(a.initial_quantity) || 0) - currentInitial);
+    const diffB = Math.abs((Number(b.initial_quantity) || 0) - currentInitial);
+    if (diffA !== diffB) {
+      return diffA - diffB;
+    }
+    const dateA = a.start_date ? new Date(a.start_date).getTime() : 0;
+    const dateB = b.start_date ? new Date(b.start_date).getTime() : 0;
+    return dateB - dateA;
+  };
+
+  // 2. Разделяем на партии того же цеха и другие
+  const sameWorkshopBatches = [];
+  const otherBatches = [];
+
+  for (const b of validBatches) {
+    if (currentWorkshopId && b.workshop_id && b.workshop_id === currentWorkshopId) {
+      sameWorkshopBatches.push(b);
+    } else {
+      otherBatches.push(b);
+    }
+  }
+
+  sameWorkshopBatches.sort(compareBySimilarity);
+  otherBatches.sort(compareBySimilarity);
+
+  // 3. Формируем итоговый список топ-limit
+  const result = sameWorkshopBatches.slice(0, limit);
+  const remainingSlots = limit - result.length;
+  if (remainingSlots > 0) {
+    result.push(...otherBatches.slice(0, remainingSlots));
+  }
+
+  return result;
+}
+
+/**
  * Рассчитать падёж по историческим партиям на указанный день
- * @param {Array} historicalBatches - [{id, batch_name, initial_quantity}]
+ * @param {Array} historicalBatches - [{id, batch_name, initial_quantity, workshop_id, is_summary, start_date}]
  * @param {Array} historicalLogs    - [{batch_id, age, mortality, mortality_halal}]
  * @param {number} targetAge        - текущий возраст для сравнения
- * @returns {Array<{batchName, totalDead, totalNatural, totalHalal, percent, naturalPercent, halalPercent}>}
+ * @param {object} [currentBatch]   - текущая партия (для дополнительной фильтрации топ-10 схожих, если передано больше)
+ * @returns {Array<{batchName, totalDead, totalNatural, totalHalal, percent, naturalPercent, halalPercent, initialQuantity}>}
  */
-export function calcHistoricalMortality(historicalBatches, historicalLogs, targetAge) {
+export function calcHistoricalMortality(historicalBatches, historicalLogs, targetAge, currentBatch = null) {
   if (!historicalBatches?.length || !historicalLogs?.length) return [];
 
-  return historicalBatches.map(batch => {
+  let batchesToCompare = historicalBatches;
+  if (currentBatch && batchesToCompare.length > 10) {
+    batchesToCompare = getTopSimilarBatches(batchesToCompare, currentBatch, 10);
+  }
+
+  return batchesToCompare.map(batch => {
     const batchLogs = historicalLogs.filter(
       l => l.batch_id === batch.id && l.age <= targetAge
     );

@@ -50,7 +50,7 @@ function calcFlockSize(logs, initialBirds) {
   return initialBirds - logs.reduce((sum, r) => sum + (r.mortality || 0), 0);
 }
 
-export default function DashboardNormFact({ logs, initialBirds, historicalBatches, historicalLogs }) {
+export default function DashboardNormFact({ logs, initialBirds, historicalBatches, historicalLogs, currentBatch }) {
   if (!logs?.length) return null;
 
   const sorted      = [...logs].sort((a, b) => b.age - a.age);
@@ -70,8 +70,8 @@ export default function DashboardNormFact({ logs, initialBirds, historicalBatche
     ? Math.round((lastLog.daily_feed * FEED_BAG_WEIGHT_G) / currentFlock)
     : null;
 
-  // Историческое сравнение падежа
-  const histMortality = calcHistoricalMortality(historicalBatches || [], historicalLogs || [], lastAge);
+  // Историческое сравнение падежа (топ 10 схожих партий)
+  const histMortality = calcHistoricalMortality(historicalBatches || [], historicalLogs || [], lastAge, currentBatch);
 
   return (
     <div className="space-y-4 mb-6">
