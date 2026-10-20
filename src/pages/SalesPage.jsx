@@ -44,6 +44,10 @@ function SalesPage() {
     const [endDate, setEndDate] = useState('');
     const [reportData, setReportData] = useState(null);
 
+    // --- Состояния для массового выделения ---
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [isArchiving, setIsArchiving] = useState(false);
+
     // --- ФУНКЦИИ ---
 
     const fetchAllData = async () => {
@@ -55,7 +59,7 @@ function SalesPage() {
         ]);
 
         if (salesResponse.error) { console.error('Ошибка загрузки продаж:', salesResponse.error); }
-        else { setAllSales(salesResponse.data); }
+        else { setAllSales(salesResponse.data); setSelectedIds(new Set()); }
 
         if (batchesResponse.error) { console.error("Ошибка загрузки партий:", batchesResponse.error); }
         else { setActiveBatches(batchesResponse.data); }
@@ -93,9 +97,46 @@ function SalesPage() {
     const filteredSales = useMemo(() => {
         return allSales.filter(sale => {
             if (showArchived) return true;
+            if (sale.is_archived) return false;
             return !sale.batch_id || sale.batch_is_active === true;
         });
     }, [allSales, showArchived]);
+
+    const selectedSales = useMemo(() => filteredSales.filter(sale => selectedIds.has(sale.id)), [filteredSales, selectedIds]);
+    const isAllSelected = filteredSales.length > 0 && selectedSales.length === filteredSales.length;
+
+    const handleToggleArchived = () => { setShowArchived(!showArchived); setSelectedIds(new Set()); };
+
+    const handleSelect = (saleId) => {
+        const newSelectedIds = new Set(selectedIds);
+        if (newSelectedIds.has(saleId)) { newSelectedIds.delete(saleId); }
+        else { newSelectedIds.add(saleId); }
+        setSelectedIds(newSelectedIds);
+    };
+
+    const handleSelectAll = () => {
+        setSelectedIds(isAllSelected ? new Set() : new Set(filteredSales.map(sale => sale.id)));
+    };
+
+    const handleMassArchive = async (archive) => {
+        const targets = selectedSales.filter(sale => Boolean(sale.is_archived) !== archive);
+        if (targets.length === 0) return;
+        if (archive) {
+            const unpaid = targets.filter(sale => sale.balance > 0);
+            const unpaidTotal = unpaid.reduce((sum, sale) => sum + sale.balance, 0);
+            const debtNote = unpaid.length > 0
+                ? `\nИз них ${unpaid.length} с непогашенным остатком на сумму ${unpaidTotal.toFixed(2)} TJS — они останутся в расчёте «Нового поступления».`
+                : '';
+            if (!window.confirm(`Архивировать ${targets.length} продаж?${debtNote}`)) return;
+        } else if (!window.confirm(`Вернуть из архива ${targets.length} продаж?`)) {
+            return;
+        }
+        setIsArchiving(true);
+        const { error } = await supabase.from('sales').update({ is_archived: archive }).in('id', targets.map(sale => sale.id));
+        if (error) { alert("Ошибка: " + error.message); }
+        else { await fetchAllData(); handleResetFilter(); }
+        setIsArchiving(false);
+    };
 
     const handleGenerateReport = () => {
         if (!startDate || !endDate) { alert("Выберите даты."); return; }
@@ -205,14 +246,14 @@ function SalesPage() {
     };
 
     return (
-        <div>
+        <div className={selectedSales.length > 0 ? 'pb-24' : undefined}>
             <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Учет продаж и поступлений</h1>
                 <div className="flex items-center gap-4">
                     <button onClick={() => setIsNewPaymentModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">+ Новое поступление</button>
                     <label className="flex items-center text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" checked={showArchived} onChange={() => setShowArchived(!showArchived)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
-                        <span className="ml-2">Показать продажи архивных партий</span>
+                        <input type="checkbox" checked={showArchived} onChange={handleToggleArchived} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                        <span className="ml-2">Показать архивные продажи</span>
                     </label>
                 </div>
             </div>
@@ -264,6 +305,7 @@ function SalesPage() {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 text-xs uppercase">
                         <tr>
+                            <th className="p-4"><input type="checkbox" checked={isAllSelected} onChange={handleSelectAll} aria-label="Выбрать все"/></th>
                             <th className="px-6 py-3">Дата/Время/Партия</th><th className="px-6 py-3">Покупатель</th>
                             <th className="px-6 py-3">Вес/Цена</th><th className="px-6 py-3">Сумма</th>
                             <th className="px-6 py-3">Оплачено</th><th className="px-6 py-3">Статус</th>
@@ -271,15 +313,16 @@ function SalesPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {loading ? ( <tr><td colSpan="7" className="text-center py-4">Загрузка...</td></tr> ) :
+                        {loading ? ( <tr><td colSpan="8" className="text-center py-4">Загрузка...</td></tr> ) :
                         filteredSales.map(sale => (
                             <tr
                                 key={sale.id}
-                                className={editingSaleId === sale.id ? "border-b" : "border-b cursor-pointer hover:bg-gray-50"}
+                                className={editingSaleId === sale.id ? "border-b" : `border-b cursor-pointer ${selectedIds.has(sale.id) ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
                                 onClick={editingSaleId === sale.id ? undefined : () => openPaymentsModal(sale)}
                             >
                                 {editingSaleId === sale.id ? (
                                     <>
+                                        <td className="p-4"></td>
                                         <td className="p-2"><input type="date" value={editSaleFormData.sale_date} onChange={e => setEditSaleFormData({...editSaleFormData, sale_date: e.target.value})} className="p-1 border rounded w-full"/></td>
                                         <td className="p-2"><select value={editSaleFormData.customer_id} onChange={e => setEditSaleFormData({...editSaleFormData, customer_id: e.target.value})} className="p-1 border rounded w-full bg-white"><option value="">-- Без клиента --</option>{customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></td>
                                         <td className="p-2">
@@ -301,7 +344,8 @@ function SalesPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <td className="px-6 py-4"><p>{new Date(sale.sale_date).toLocaleDateString()} <span className="text-gray-400">{new Date(sale.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></p>{sale.batch_name && <span className={`text-xs rounded-full px-2 py-1 ${sale.batch_is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>{sale.batch_name}</span>}</td>
+                                        <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(sale.id)} onChange={() => handleSelect(sale.id)} aria-label="Выбрать продажу"/></td>
+                                        <td className="px-6 py-4"><p>{new Date(sale.sale_date).toLocaleDateString()} <span className="text-gray-400">{new Date(sale.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></p>{sale.batch_name && <span className={`text-xs rounded-full px-2 py-1 ${sale.batch_is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>{sale.batch_name}</span>}{sale.is_archived && <span className="ml-1 text-xs rounded-full px-2 py-1 bg-gray-200 text-gray-600">Архив</span>}</td>
                                         <td className="px-6 py-4">{sale.customer_name || '–'}</td>
                                         <td className="px-6 py-4"><p>{sale.weight_kg} кг</p><p className="text-xs text-gray-500">@ {sale.price_per_kg}</p></td>
                                         <td className="px-6 py-4 font-semibold">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(sale.total_amount)}</td>
@@ -315,10 +359,31 @@ function SalesPage() {
                                 )}
                             </tr>
                         ))}
-                        { !loading && filteredSales.length === 0 && (<tr><td colSpan="7" className="text-center py-4 text-gray-500">Записей о продажах не найдено.</td></tr>) }
+                        { !loading && filteredSales.length === 0 && (<tr><td colSpan="8"className="text-center py-4 text-gray-500">Записей о продажах не найдено.</td></tr>) }
                     </tbody>
                 </table>
             </div>
+
+            {selectedSales.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 border-t z-40 lg:pl-72 transition-all duration-300">
+                    <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm text-gray-700">
+                            <span className="font-semibold">Выбрано: {selectedSales.length}</span>
+                            <span className="ml-4">Сумма: <strong>{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(selectedSales.reduce((sum, sale) => sum + sale.total_amount, 0))}</strong></span>
+                            <span className="ml-4">Остаток: <strong className="text-red-600">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'TJS' }).format(selectedSales.reduce((sum, sale) => sum + Math.max(sale.balance, 0), 0))}</strong></span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {selectedSales.some(sale => !sale.is_archived) && (
+                                <button onClick={() => handleMassArchive(true)} disabled={isArchiving} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">В архив</button>
+                            )}
+                            {selectedSales.some(sale => sale.is_archived) && (
+                                <button onClick={() => handleMassArchive(false)} disabled={isArchiving} className="px-4 py-2 bg-white border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50 disabled:opacity-50">Из архива</button>
+                            )}
+                            <button onClick={() => setSelectedIds(new Set())} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Снять выбор</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isModalOpen && selectedSale && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
