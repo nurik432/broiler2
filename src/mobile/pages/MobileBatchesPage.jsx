@@ -122,6 +122,24 @@ export default function MobileBatchesPage() {
         console.error('Ошибка при скрытии газовых расходов:', gasError);
         window.alert('Партия архивирована, но не удалось скрыть газовые расходы: ' + gasError.message);
       }
+
+      // Если не осталось активных обычных партий — архивируем и сводную
+      const { count: remainingActive } = await supabase
+        .from('broiler_batches')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .or('is_summary.eq.false,is_summary.is.null');
+
+      if (remainingActive === 0) {
+        const { error: summaryError } = await supabase
+          .from('broiler_batches')
+          .update({ is_active: false })
+          .eq('is_summary', true)
+          .eq('is_active', true);
+        if (summaryError) {
+          console.error('Ошибка при архивации сводной партии:', summaryError);
+        }
+      }
     }
     await fetchBatches();
   }
