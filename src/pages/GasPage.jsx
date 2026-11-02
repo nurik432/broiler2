@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { forecastGasBalance, projectedZeroBalanceReading } from '../utils/gasForecast';
+import { detectUnarchivedGasState } from '../utils/gasArchive';
 
 function GasPage() {
     // --- Данные ---
@@ -87,16 +88,66 @@ function GasPage() {
         return sorted[0] || null;
     }, [priceHistory]);
 
-    // --- Баланс: пополнения минус списания за расход ---
+    // --- Баланс текущего активного периода: пополнения минус списания за расход ---
     const summary = useMemo(() => {
-        const totalTopups = filteredTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        const totalConsumedAmount = filteredReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+        const activeTopups = topups.filter(t => !t.is_hidden);
+        const activeReadings = readings.filter(r => !r.is_hidden);
+        const totalTopups = activeTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        const totalConsumedAmount = activeReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
         const currentBalance = totalTopups - totalConsumedAmount;
         return { totalTopups, totalConsumedAmount, currentBalance };
-    }, [filteredTopups, filteredReadings]);
+    }, [topups, readings]);
 
+    const activeReadings = useMemo(() => readings.filter(r => !r.is_hidden), [readings]);
     const forecast = useMemo(() =>
-        forecastGasBalance(filteredReadings, summary.currentBalance), [filteredReadings, summary.currentBalance]);
+        forecastGasBalance(activeReadings, summary.currentBalance), [activeReadings, summary.currentBalance]);
+
+    // --- Детекция незавершённой архивации пополнений газа ---
+    const unarchivedGasState = useMemo(() =>
+        detectUnarchivedGasState(topups, readings), [topups, readings]);
+
+    const handleFixUnarchivedGas = async () => {
+        if (!unarchivedGasState) return;
+        setIsSubmitting(true);
+        const { visibleTopups, balance } = unarchivedGasState;
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // 1. Скрываем все незаархивированные пополнения
+        const topupIds = visibleTopups.map(t => t.id);
+        const { error: hideErr } = await supabase
+            .from('gas_topups')
+            .update({ is_hidden: true })
+            .in('id', topupIds);
+
+        if (hideErr) {
+            alert('Ошибка при скрытии пополнений: ' + hideErr.message);
+            setIsSubmitting(false);
+            return;
+        }
+
+        // 2. Если остаток положительный — создаём запись с остатком
+        if (balance > 0) {
+            const { error: insertErr } = await supabase
+                .from('gas_topups')
+                .insert([{
+                    transaction_date: today,
+                    amount: balance,
+                    description: 'Остаток с предыдущей партии',
+                    is_hidden: false,
+                    user_id: user?.id,
+                }]);
+
+            if (insertErr) {
+                alert('Ошибка при переносе остатка: ' + insertErr.message);
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
+        await fetchData();
+        setIsSubmitting(false);
+    };
 
     // --- Показания в выбранном периоде и сумма расхода по нему ---
     const rangeReadings = useMemo(() =>
@@ -251,6 +302,39 @@ function GasPage() {
                     <span className="ml-2">Показать скрытые позиции</span>
                 </label>
             </div>
+
+            {/* Предупреждение о несохранённом остатке газа при архивации */}
+            {unarchivedGasState && (
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-lg shadow-sm">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-semibold text-amber-800 flex items-center gap-2">
+                                <span>⚠️</span> Пополнения предыдущей партии не были скрыты при архивации
+                            </p>
+                            <p className="text-sm text-amber-700 mt-1">
+                                Расход архивированной партии: <strong>{formatCurrency(unarchivedGasState.hiddenConsumed)}</strong> | 
+                                Сумма пополнений: <strong>{formatCurrency(unarchivedGasState.totalTopups)}</strong>
+                                {unarchivedGasState.balance > 0 ? (
+                                    <> | Чистый остаток к переносу: <strong className="text-green-700">+{formatCurrency(unarchivedGasState.balance)}</strong></>
+                                ) : null}
+                            </p>
+                            <p className="text-xs text-amber-600 mt-1">
+                                Нажмите кнопку, чтобы скрыть старые пополнения и оставить на балансе разницу между расходом и пополнением.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleFixUnarchivedGas}
+                            disabled={isSubmitting}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium text-sm rounded-lg whitespace-nowrap shadow transition-colors disabled:opacity-50"
+                        >
+                            {unarchivedGasState.balance > 0
+                                ? `Перенести остаток (${formatCurrency(unarchivedGasState.balance)}) и скрыть старые`
+                                : 'Скрыть старые пополнения'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* === ДАШБОРД === */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
@@ -558,7 +642,14 @@ function GasPage() {
                                     <tr key={t.id} className={`border-b transition-colors ${t.is_hidden ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
                                         <td className="px-4 py-3 font-medium">{new Date(t.transaction_date).toLocaleDateString('ru-RU')}</td>
                                         <td className="px-4 py-3 font-semibold text-green-600">+{formatCurrency(t.amount)}</td>
-                                        <td className="px-4 py-3 text-gray-600">{t.description || '–'}</td>
+                                        <td className="px-4 py-3 text-gray-600">
+                                            {t.description || '–'}
+                                            {t.description === 'Остаток с предыдущей партии' && (
+                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    Перенос остатка
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex gap-2 justify-end">
                                                 <button onClick={() => handleToggleHidden('gas_topups', t.id, t.is_hidden)}

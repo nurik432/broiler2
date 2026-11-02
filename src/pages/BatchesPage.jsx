@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
 import { syncSummaryBatchLog } from '../utils/summaryBatchSync';
 import { exportBatchToXLSX } from '../utils/exportBatchToXLSX';
+import { archiveGasRecords } from '../utils/gasArchive';
 
 function BatchesPage() {
     const [view, setView] = useState('active');
@@ -127,14 +128,11 @@ const { error: employeesError } = await supabase
                 }
             }
 
-            // 3. Скрываем все видимые газовые расходы (обнуление расхода для новой партии)
-            const { error: gasError } = await supabase
-                .from('gas_meter_readings')
-                .update({ is_hidden: true })
-                .eq('is_hidden', false);
-            if (gasError) {
-                console.error('Ошибка при скрытии газовых расходов:', gasError);
-                alert('Партия архивирована, но не удалось скрыть газовые расходы: ' + gasError.message);
+            // 3. Скрываем все видимые газовые расходы и пополнения, перенося положительный остаток
+            const gasResult = await archiveGasRecords(supabase, today);
+            if (gasResult?.error) {
+                console.error('Ошибка при архивации газа:', gasResult.error);
+                alert('Партия архивирована, но возникла ошибка при обработке газа: ' + gasResult.error.message);
             }
 
             // 4. Если не осталось активных обычных партий — архивируем и сводную

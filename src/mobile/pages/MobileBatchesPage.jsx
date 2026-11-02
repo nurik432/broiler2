@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { syncSummaryBatchLog } from '../../utils/summaryBatchSync';
 import { exportBatchToXLSX } from '../../utils/exportBatchToXLSX';
+import { archiveGasRecords } from '../../utils/gasArchive';
 import Card from '../components/Card';
 import ListRow from '../components/ListRow';
 import StatusPill from '../components/StatusPill';
@@ -113,14 +114,11 @@ export default function MobileBatchesPage() {
         if (count > 0) window.alert(`✅ Партия завершена. Уволено сотрудников: ${count}.\nВыплаты по ним переведены в архив автоматически.`);
       }
 
-      // Скрываем все видимые газовые расходы (обнуление расхода для новой партии)
-      const { error: gasError } = await supabase
-        .from('gas_meter_readings')
-        .update({ is_hidden: true })
-        .eq('is_hidden', false);
-      if (gasError) {
-        console.error('Ошибка при скрытии газовых расходов:', gasError);
-        window.alert('Партия архивирована, но не удалось скрыть газовые расходы: ' + gasError.message);
+      // Скрываем все видимые газовые расходы и пополнения, перенося положительный остаток
+      const gasResult = await archiveGasRecords(supabase, today);
+      if (gasResult?.error) {
+        console.error('Ошибка при архивации газа:', gasResult.error);
+        window.alert('Партия архивирована, но возникла ошибка при обработке газа: ' + gasResult.error.message);
       }
 
       // Если не осталось активных обычных партий — архивируем и сводную

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { forecastGasBalance, projectedZeroBalanceReading } from '../../utils/gasForecast';
+import { detectUnarchivedGasState } from '../../utils/gasArchive';
 import Card from '../components/Card';
 import ConfirmSheet from '../components/ConfirmSheet';
 import FormField from '../components/FormField';
@@ -68,10 +69,14 @@ export default function MobileGasPage() {
   }, [priceHistory]);
 
   const summary = useMemo(() => {
-    const totalTopups = filteredTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const totalConsumedAmount = filteredReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const activeTopups = topups.filter((t) => !t.is_hidden);
+    const activeReadings = readings.filter((r) => !r.is_hidden);
+    const totalTopups = activeTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const totalConsumedAmount = activeReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
     return { currentBalance: totalTopups - totalConsumedAmount, totalConsumedAmount };
-  }, [filteredTopups, filteredReadings]);
+  }, [topups, readings]);
+
+  const activeReadings = useMemo(() => readings.filter((r) => !r.is_hidden), [readings]);
 
   const rangeReadings = useMemo(() => filteredReadings.filter((r) => {
     if (rangeFrom && r.reading_date < rangeFrom) return false;
@@ -82,7 +87,54 @@ export default function MobileGasPage() {
   const rangeTotalAmount = useMemo(() =>
     rangeReadings.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), [rangeReadings]);
 
-  const forecast = useMemo(() => forecastGasBalance(filteredReadings, summary.currentBalance), [filteredReadings, summary.currentBalance]);
+  const forecast = useMemo(() => forecastGasBalance(activeReadings, summary.currentBalance), [activeReadings, summary.currentBalance]);
+
+  const unarchivedGasState = useMemo(() =>
+    detectUnarchivedGasState(topups, readings), [topups, readings]);
+
+  async function handleFixUnarchivedGas() {
+    if (!unarchivedGasState) return;
+    setSubmitting(true);
+    try {
+      const { visibleTopups, balance } = unarchivedGasState;
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 1. Скрываем старые пополнения
+      const topupIds = visibleTopups.map((t) => t.id);
+      const { error: hideErr } = await supabase
+        .from('gas_topups')
+        .update({ is_hidden: true })
+        .in('id', topupIds);
+
+      if (hideErr) {
+        window.alert('Ошибка при скрытии пополнений: ' + hideErr.message);
+        return;
+      }
+
+      // 2. Если остаток положительный — создаём запись с остатком
+      if (balance > 0) {
+        const { error: insertErr } = await supabase
+          .from('gas_topups')
+          .insert([{
+            transaction_date: today,
+            amount: balance,
+            description: 'Остаток с предыдущей партии',
+            is_hidden: false,
+            user_id: user?.id,
+          }]);
+
+        if (insertErr) {
+          window.alert('Ошибка при переносе остатка: ' + insertErr.message);
+          return;
+        }
+      }
+
+      await fetchData();
+    } finally {
+      setSubmitting(false);
+    }
+  }
   const zeroBalancePoint = useMemo(() => projectedZeroBalanceReading(
     previousReading ? previousReading.reading_value : null,
     summary.currentBalance,
@@ -182,6 +234,33 @@ export default function MobileGasPage() {
 
   return (
     <div className="flex flex-col gap-3 py-3">
+      {unarchivedGasState && (
+        <Card className="border-l-4" style={{ borderLeftColor: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)' }}>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold" style={{ color: '#b45309' }}>
+              ⚠️ Пополнения прошлой партии не были скрыты
+            </p>
+            <p className="text-xs text-tg-hint">
+              Расход: <strong>{formatCurrency(unarchivedGasState.hiddenConsumed)}</strong> · Пополнения: <strong>{formatCurrency(unarchivedGasState.totalTopups)}</strong>
+              {unarchivedGasState.balance > 0 && (
+                <> · Остаток: <strong style={{ color: '#28a745' }}>+{formatCurrency(unarchivedGasState.balance)}</strong></>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={handleFixUnarchivedGas}
+              disabled={submitting}
+              className="mt-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              style={{ background: '#b45309', minHeight: 40 }}
+            >
+              {unarchivedGasState.balance > 0
+                ? `Перенести остаток (${formatCurrency(unarchivedGasState.balance)})`
+                : 'Скрыть старые пополнения'}
+            </button>
+          </div>
+        </Card>
+      )}
+
       <StatGrid items={[
         { label: 'Текущий баланс', value: formatCurrency(summary.currentBalance), color: balanceColor },
         { label: 'Показание счётчика', value: previousReading ? `${previousReading.reading_value} м³` : '—', hint: previousReading ? `на ${new Date(previousReading.reading_date).toLocaleDateString('ru-RU')}` : null, color: '#6366f1' },
@@ -316,7 +395,15 @@ export default function MobileGasPage() {
               <Card key={t.id} className={t.is_hidden ? 'opacity-50' : ''}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs text-tg-hint">{new Date(t.transaction_date).toLocaleDateString('ru-RU')}{t.description ? ` · ${t.description}` : ''}</p>
+                    <p className="text-xs text-tg-hint">
+                      {new Date(t.transaction_date).toLocaleDateString('ru-RU')}
+                      {t.description ? ` · ${t.description}` : ''}
+                      {t.description === 'Остаток с предыдущей партии' && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                          Перенос остатка
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <p className="text-base font-semibold shrink-0" style={{ color: '#28a745' }}>+{formatCurrency(t.amount)}</p>
                 </div>
