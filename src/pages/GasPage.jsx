@@ -255,10 +255,21 @@ function GasPage() {
             {/* === ДАШБОРД === */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Баланс и прогноз</h2>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
-                    <div className={`p-4 rounded-lg ${balanceColorClasses.bg}`}>
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-4 text-center">
+                    <div className={`p-4 rounded-lg border-l-4 ${balanceColorClasses.bg}`} style={{ borderLeftColor: summary.currentBalance <= 0 ? '#dc2626' : '#16a34a' }}>
                         <p className={`text-sm font-medium ${balanceColorClasses.text}`}>Текущий баланс</p>
                         <p className={`font-bold text-xl md:text-2xl ${balanceColorClasses.value}`}>{formatCurrency(summary.currentBalance)}</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-indigo-50">
+                        <p className="text-sm text-indigo-600 font-medium">Показание счётчика</p>
+                        <p className="font-bold text-xl md:text-2xl text-indigo-700">
+                            {previousReading ? `${previousReading.reading_value} м³` : '—'}
+                        </p>
+                        {previousReading && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                на {new Date(previousReading.reading_date).toLocaleDateString('ru-RU')}
+                            </p>
+                        )}
                     </div>
                     <div className="p-4 rounded-lg bg-red-50">
                         <p className="text-sm text-red-600 font-medium">Расход газа (сумма)</p>

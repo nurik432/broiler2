@@ -126,6 +126,16 @@ const { error: employeesError } = await supabase
                     alert(`✅ Партия завершена. Уволено сотрудников: ${count}.\nВыплаты по ним переведены в архив автоматически.`);
                 }
             }
+
+            // 3. Скрываем все видимые газовые расходы (обнуление расхода для новой партии)
+            const { error: gasError } = await supabase
+                .from('gas_meter_readings')
+                .update({ is_hidden: true })
+                .eq('is_hidden', false);
+            if (gasError) {
+                console.error('Ошибка при скрытии газовых расходов:', gasError);
+                alert('Партия архивирована, но не удалось скрыть газовые расходы: ' + gasError.message);
+            }
         }
 
         await fetchBatches();

@@ -112,6 +112,16 @@ export default function MobileBatchesPage() {
         const { count } = await supabase.from('employees').select('id', { count: 'exact', head: true }).eq('batch_id', batchId).eq('end_date', today);
         if (count > 0) window.alert(`✅ Партия завершена. Уволено сотрудников: ${count}.\nВыплаты по ним переведены в архив автоматически.`);
       }
+
+      // Скрываем все видимые газовые расходы (обнуление расхода для новой партии)
+      const { error: gasError } = await supabase
+        .from('gas_meter_readings')
+        .update({ is_hidden: true })
+        .eq('is_hidden', false);
+      if (gasError) {
+        console.error('Ошибка при скрытии газовых расходов:', gasError);
+        window.alert('Партия архивирована, но не удалось скрыть газовые расходы: ' + gasError.message);
+      }
     }
     await fetchBatches();
   }

@@ -184,6 +184,7 @@ export default function MobileGasPage() {
     <div className="flex flex-col gap-3 py-3">
       <StatGrid items={[
         { label: 'Текущий баланс', value: formatCurrency(summary.currentBalance), color: balanceColor },
+        { label: 'Показание счётчика', value: previousReading ? `${previousReading.reading_value} м³` : '—', hint: previousReading ? `на ${new Date(previousReading.reading_date).toLocaleDateString('ru-RU')}` : null, color: '#6366f1' },
         { label: 'Расход газа (сумма)', value: formatCurrency(summary.totalConsumedAmount), color: '#dc3545' },
         { label: 'Цена газа', value: currentPrice ? `${currentPrice.price} смн/м³` : '—', color: '#007bff' },
         { label: 'Хватит на', value: forecast && forecast.daysRemaining != null ? `${forecast.daysRemaining} дн.` : 'нет данных', hint: forecast?.projectedEmptyDate ? `до ${forecast.projectedEmptyDate.toLocaleDateString('ru-RU')}` : null, color: forecast && forecast.daysRemaining != null && forecast.daysRemaining < 7 ? '#dc3545' : 'var(--tg-hint)' },
