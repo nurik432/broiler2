@@ -72,6 +72,7 @@ export default function MobileSalesPage() {
   const filteredSales = useMemo(() => {
     return allSales.filter((s) => {
       if (showArchived) return true;
+      if (s.is_archived) return false;
       return !s.batch_id || s.batch_is_active === true;
     });
   }, [allSales, showArchived]);
